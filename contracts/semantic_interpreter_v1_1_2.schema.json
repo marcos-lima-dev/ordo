@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SemanticInterpreterOutputV1_1",
+  "type": "object",
+  "properties": {
+    "intent": {
+      "type": "string",
+      "enum": [
+        "ADD_ITEM",
+        "REMOVE_ITEM",
+        "CHANGE_QUANTITY",
+        "QUERY_PRICE",
+        "QUERY_AVAILABILITY",
+        "CONFIRM_ORDER",
+        "CANCEL_ORDER",
+        "REPLACE_ITEM",
+        "UNKNOWN"
+      ]
+    },
+    "product_term": { "type": ["string", "null"] },
+    "quantity": {
+      "type": "object",
+      "properties": {
+        "value": { "type": ["number", "null"] },
+        "value_origin": { "type": "string", "enum": ["EXPLICIT", "INFERRED", "NOT_INFORMED"] },
+        "unit": { "type": ["string", "null"] },
+        "unit_origin": { "type": "string", "enum": ["EXPLICIT", "INFERRED", "NOT_INFORMED"] }
+      },
+      "required": ["value", "value_origin", "unit", "unit_origin"]
+    },
+    "explicit_presentation": { "type": ["string", "null"] },
+    "explicit_brand": { "type": ["string", "null"] },
+    "contextual_references": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "missing_information": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "catalog_candidates": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "product_resolution_status": {
+      "type": "string",
+      "enum": ["EXACT_MATCH", "HIGH_CONFIDENCE", "AMBIGUOUS", "NOT_FOUND"]
+    }
+  },
+  "required": [
+    "intent",
+    "product_term",
+    "quantity",
+    "explicit_presentation",
+    "explicit_brand",
+    "contextual_references",
+    "missing_information",
+    "catalog_candidates",
+    "product_resolution_status"
+  ]
+}
