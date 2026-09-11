@@ -1,0 +1,10 @@
+{"id": "CONV-H-01", "turns": [{"message": "quero 10kg de manteiga sem sal", "expected_intent": "ADD_ITEM"}, {"message": "coloca também 5kg de provolone", "expected_intent": "ADD_ITEM"}, {"message": "o da Tânia", "expected_intent": "ADD_ITEM"}, {"message": "pode fechar", "expected_intent": "CONFIRM_ORDER"}]}
+{"id": "CONV-H-02", "turns": [{"message": "me manda duas manteigas", "expected_intent": "ADD_ITEM"}, {"message": "sem sal", "expected_intent": "ADD_ITEM"}]}
+{"id": "CONV-H-03", "turns": [{"message": "quero 10kg de manteiga sem sal", "expected_intent": "ADD_ITEM"}, {"message": "na verdade são 8kg de manteiga", "expected_intent": "CHANGE_QUANTITY"}]}
+{"id": "CONV-H-04", "turns": [{"message": "quero 10kg de manteiga sem sal", "expected_intent": "ADD_ITEM"}, {"message": "tira o provolone", "expected_intent": "REMOVE_ITEM"}]}
+{"id": "CONV-H-05", "turns": [{"message": "quero dois provolones", "expected_intent": "ADD_ITEM"}, {"message": "da Tânia", "expected_intent": "ADD_ITEM"}]}
+{"id": "CONV-H-06", "turns": [{"message": "manda 5kg de gorgonzola", "expected_intent": "ADD_ITEM"}, {"message": "o da Tânia", "expected_intent": "ADD_ITEM"}]}
+{"id": "CONV-H-07", "turns": [{"message": "coloca 3 formas de emmental", "expected_intent": "ADD_ITEM"}, {"message": "muda para 4", "expected_intent": "CHANGE_QUANTITY"}]}
+{"id": "CONV-H-08", "turns": [{"message": "quero 2 peças de queijo prato", "expected_intent": "ADD_ITEM"}, {"message": "tira uma", "expected_intent": "REMOVE_ITEM"}]}
+{"id": "CONV-H-09", "turns": [{"message": "bota 10 kg de manteiga com sal", "expected_intent": "ADD_ITEM"}, {"message": "coloca também 5 kg de mussarela", "expected_intent": "ADD_ITEM"}, {"message": "pode fechar", "expected_intent": "CONFIRM_ORDER"}]}
+{"id": "CONV-H-10", "turns": [{"message": "quero 2 potes de requeijão", "expected_intent": "ADD_ITEM"}, {"message": "na verdade são 3", "expected_intent": "CHANGE_QUANTITY"}, {"message": "cancela tudo", "expected_intent": "CANCEL_ORDER"}]}

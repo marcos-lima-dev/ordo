@@ -1,0 +1,52 @@
+{"message": "5kg de provolone", "expected_candidates": ["CQ-44", "CQ-46"], "expected_status": "AMBIGUOUS", "reason": "dois tipos de provolone"}
+{"message": "manteiga sem sal", "expected_candidates": ["CQ-29"], "expected_status": "EXACT_MATCH", "reason": "única manteiga sem sal"}
+{"message": "manteiga com sal", "expected_candidates": ["CQ-28"], "expected_status": "EXACT_MATCH", "reason": "única manteiga com sal"}
+{"message": "provolne", "expected_candidates": ["CQ-44", "CQ-46"], "expected_status": "AMBIGUOUS", "reason": "erro de digitação para provolone"}
+{"message": "3 formas de emmental", "expected_candidates": ["CQ-10"], "expected_status": "EXACT_MATCH", "reason": "Emmental forma 5kg"}
+{"message": "gorgonzola 2kg", "expected_candidates": ["CQ-06", "CQ-07"], "expected_status": "AMBIGUOUS", "reason": "cartela vs forma"}
+{"message": "brie", "expected_candidates": ["CQ-01", "CQ-02", "CQ-03"], "expected_status": "AMBIGUOUS", "reason": "vários tipos de brie"}
+{"message": "camembert", "expected_candidates": ["CQ-04"], "expected_status": "EXACT_MATCH", "reason": "único camembert"}
+{"message": "parmesão curado", "expected_candidates": ["CQ-42", "CQ-43"], "expected_status": "AMBIGUOUS", "reason": "fracionado vs forma"}
+{"message": "requeijão são vicente", "expected_candidates": ["CQ-26"], "expected_status": "EXACT_MATCH", "reason": "único requeijão São Vicente"}
+{"message": "catupiry bisnaga", "expected_candidates": ["CQ-62", "CQ-63"], "expected_status": "AMBIGUOUS", "reason": "cream cheese vs requeijão"}
+{"message": "creme de leite larisol", "expected_candidates": ["CQ-64"], "expected_status": "EXACT_MATCH", "reason": "único creme de leite Larisol"}
+{"message": "iogurte larisol", "expected_candidates": ["CQ-65"], "expected_status": "EXACT_MATCH", "reason": "único iogurte Larisol"}
+{"message": "queijo reino sem lata", "expected_candidates": ["CQ-24"], "expected_status": "EXACT_MATCH", "reason": "único reino sem lata"}
+{"message": "queijo reino com lata", "expected_candidates": ["CQ-25"], "expected_status": "EXACT_MATCH", "reason": "único reino com lata"}
+{"message": "gouda são vicente", "expected_candidates": ["CQ-14", "CQ-15", "CQ-16"], "expected_status": "AMBIGUOUS", "reason": "vários goudas"}
+{"message": "mussarela coyote", "expected_candidates": ["CQ-30"], "expected_status": "EXACT_MATCH", "reason": "única mussarela Coyote"}
+{"message": "grana padano peça", "expected_candidates": ["CQ-33", "CQ-69"], "expected_status": "AMBIGUOUS", "reason": "Gran Parma vs Gran Mestri"}
+{"message": "provolone da tânia", "expected_candidates": ["CQ-44"], "expected_status": "EXACT_MATCH", "reason": "marca Tânia resolve"}
+{"message": "provolone riqueza", "expected_candidates": ["CQ-46"], "expected_status": "EXACT_MATCH", "reason": "marca Riqueza resolve"}
+{"message": "queijo minas padrão", "expected_candidates": ["CQ-22", "CQ-47", "CQ-76"], "expected_status": "AMBIGUOUS", "reason": "vários minas padrão"}
+{"message": "ricota defumada", "expected_candidates": ["CQ-45"], "expected_status": "EXACT_MATCH", "reason": "única ricota defumada"}
+{"message": "burrata", "expected_candidates": ["CQ-41"], "expected_status": "EXACT_MATCH", "reason": "única burrata"}
+{"message": "coalho serta norte", "expected_candidates": ["CQ-59"], "expected_status": "EXACT_MATCH", "reason": "único coalho Serta Norte"}
+{"message": "tomate seco villagio", "expected_candidates": ["CQ-71"], "expected_status": "EXACT_MATCH", "reason": "único tomate seco Villagio"}
+{"message": "feta", "expected_candidates": ["CQ-53", "CQ-54"], "expected_status": "AMBIGUOUS", "reason": "fracionado vs forma"}
+{"message": "massa para fondue", "expected_candidates": ["CQ-20"], "expected_status": "EXACT_MATCH", "reason": "única massa para fondue"}
+{"message": "maasdam", "expected_candidates": ["CQ-21"], "expected_status": "EXACT_MATCH", "reason": "único maasdam"}
+{"message": "emmental skin pack", "expected_candidates": ["CQ-17"], "expected_status": "EXACT_MATCH", "reason": "único emmental skin pack"}
+{"message": "gouda skin pack", "expected_candidates": ["CQ-18"], "expected_status": "EXACT_MATCH", "reason": "único gouda skin pack"}
+{"message": "gruyere skin pack", "expected_candidates": ["CQ-19"], "expected_status": "EXACT_MATCH", "reason": "único gruyere skin pack"}
+{"message": "queijo prato", "expected_candidates": ["CQ-74"], "expected_status": "EXACT_MATCH", "reason": "único queijo prato"}
+{"message": "parmesão tropical", "expected_candidates": ["CQ-49"], "expected_status": "EXACT_MATCH", "reason": "único parmesão tropical"}
+{"message": "ricota fresca", "expected_candidates": ["CQ-48"], "expected_status": "EXACT_MATCH", "reason": "única ricota fresca"}
+{"message": "cream cheese catupiry", "expected_candidates": ["CQ-62"], "expected_status": "EXACT_MATCH", "reason": "único cream cheese Catupiry"}
+{"message": "requeijão catupiry", "expected_candidates": ["CQ-63"], "expected_status": "EXACT_MATCH", "reason": "único requeijão Catupiry"}
+{"message": "requeijão roseli", "expected_candidates": ["CQ-66"], "expected_status": "EXACT_MATCH", "reason": "único requeijão Roseli"}
+{"message": "cream cheese roseli", "expected_candidates": ["CQ-67"], "expected_status": "EXACT_MATCH", "reason": "único cream cheese Roseli"}
+{"message": "gruyere 12kg", "expected_candidates": ["CQ-11"], "expected_status": "EXACT_MATCH", "reason": "gruyere forma 12kg"}
+{"message": "gruyere 6kg", "expected_candidates": ["CQ-12"], "expected_status": "EXACT_MATCH", "reason": "gruyere forma 6kg"}
+{"message": "gruyere barra 3kg", "expected_candidates": ["CQ-13"], "expected_status": "EXACT_MATCH", "reason": "gruyere barra 3kg"}
+{"message": "emmental 12kg", "expected_candidates": ["CQ-08"], "expected_status": "EXACT_MATCH", "reason": "emmental forma 12kg"}
+{"message": "emmental barra 3kg", "expected_candidates": ["CQ-09"], "expected_status": "EXACT_MATCH", "reason": "emmental barra 3kg"}
+{"message": "gouda provence", "expected_candidates": ["CQ-15"], "expected_status": "EXACT_MATCH", "reason": "único gouda provence"}
+{"message": "gouda tomate seco", "expected_candidates": ["CQ-16"], "expected_status": "EXACT_MATCH", "reason": "único gouda tomate seco"}
+{"message": "grana 1/2", "expected_candidates": ["CQ-31"], "expected_status": "EXACT_MATCH", "reason": "única meia forma grana"}
+{"message": "grana 1/8", "expected_candidates": ["CQ-32"], "expected_status": "EXACT_MATCH", "reason": "único 1/8 grana"}
+{"message": "presunto cru", "expected_candidates": ["CQ-34", "CQ-35"], "expected_status": "AMBIGUOUS", "reason": "forma vs fatiado"}
+{"message": "brie triangulo", "expected_candidates": ["CQ-02"], "expected_status": "EXACT_MATCH", "reason": "único brie triangulo"}
+{"message": "brie specialitte", "expected_candidates": ["CQ-03"], "expected_status": "EXACT_MATCH", "reason": "único brie specialitte"}
+{"message": "queijo", "expected_candidates": [], "expected_status": "AMBIGUOUS", "reason": "produto genérico demais"}
+{"message": "brie forma", "expected_candidates": ["CQ-01"], "expected_status": "EXACT_MATCH", "reason": "único brie forma"}

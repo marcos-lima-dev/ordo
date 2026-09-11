@@ -1,8 +1,22 @@
 from abc import ABC, abstractmethod
 
-class CandidateAdapter(ABC):
-    """Interface padrão para qualquer candidato avaliado."""
+# Dicionário global de registro de adaptadores
+ADAPTER_REGISTRY = {}
 
+def register_adapter(name):
+    """
+    Decorator para registrar adaptadores automaticamente.
+    Uso:
+        @register_adapter("meu_modelo")
+        class MeuModeloAdapter(CandidateAdapter):
+            ...
+    """
+    def decorator(cls):
+        ADAPTER_REGISTRY[name] = cls
+        return cls
+    return decorator
+
+class CandidateAdapter(ABC):
     @abstractmethod
     def predict(self, message: str) -> dict:
         """

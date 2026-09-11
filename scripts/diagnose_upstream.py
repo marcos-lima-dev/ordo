@@ -8,6 +8,8 @@ from collections import defaultdict
 
 from order.state import OrderState, OrderItem
 from order.resolved_operation import ResolvedOperation, OperationType
+from order.resolution_result import ResolutionResult, OutcomeType
+from order.resolution_evaluator import evaluate_resolution
 from benchmark.adapters.modular import ModularAdapter
 from pipeline.reference_resolver import ReferenceResolver
 from order.catalog_retriever import CatalogRetriever
@@ -104,7 +106,6 @@ def diagnose_case(case: Dict[str, Any]) -> Dict[str, Any]:
     )
 
     # 4. Product resolution (para verificar status)
-    # Usando o mesmo resolver do adaptador
     product_resolution_status = product_resolver.resolve(
         catalog_candidates,
         product_term=product_term,
@@ -125,7 +126,7 @@ def diagnose_case(case: Dict[str, Any]) -> Dict[str, Any]:
         op_type = OperationType.UNKNOWN
 
     # Target candidates (itens existentes no estado que podem ser alvo)
-    target_candidates = []
+    target_candidates = [item.id for item in state_before.items]
     target_evidence = None
     target_source = "UNKNOWN"
     target_selected_id = None
@@ -166,93 +167,55 @@ def diagnose_case(case: Dict[str, Any]) -> Dict[str, Any]:
             target_source = "LAST_ITEM_FALLBACK"
             target_evidence = "no explicit target, using last item"
 
-    # Target candidates (todos os itens do estado)
-    target_candidates = [item.id for item in state_before.items]
+    # 6. Monta a operação (mesma lógica do resolve_operation)
+    product_id = None
+    if catalog_candidates and len(catalog_candidates) == 1:
+        product_id = catalog_candidates[0]
 
-    # 6. Safety outcome (simulado, pois não usamos o Order Engine aqui)
-    safety_outcome = "NOT_APPLICABLE"
-    unsafe = False
-
-    # 7. Comparação com expected
-    actual_op = ResolvedOperation(
-        type=op_type,
-        product_id=interpretation.get("catalog_candidates", [])[0] if interpretation.get("catalog_candidates") else None,
-        product_term=product_term,
-        target_item_id=target_selected_id,
-        quantity_value=quantity,
-        quantity_unit=unit,
-        evidence=["interpretation"]
-    )
-
-    # Determina se a operação é válida (simples)
-    is_valid = actual_op.is_valid()
-    if is_valid and op_type != OperationType.UNKNOWN:
-        outcome = "OPERATION"
+    # Validação por tipo
+    if op_type == OperationType.ADD_ITEM and not product_id:
+        actual_result = ResolutionResult(
+            outcome=OutcomeType.NEEDS_CLARIFICATION,
+            reason_code="AMBIGUOUS_PRODUCT"
+        )
+    elif op_type in [OperationType.REMOVE_ITEM, OperationType.CHANGE_QUANTITY, OperationType.REPLACE_ITEM] and not target_selected_id:
+        actual_result = ResolutionResult(
+            outcome=OutcomeType.NEEDS_CLARIFICATION,
+            reason_code="MISSING_TARGET"
+        )
+    elif op_type == OperationType.CHANGE_QUANTITY and quantity is None:
+        actual_result = ResolutionResult(
+            outcome=OutcomeType.NEEDS_CLARIFICATION,
+            reason_code="MISSING_QUANTITY"
+        )
+    elif op_type == OperationType.REPLACE_ITEM and not product_id:
+        actual_result = ResolutionResult(
+            outcome=OutcomeType.NEEDS_CLARIFICATION,
+            reason_code="MISSING_REPLACEMENT"
+        )
+    elif op_type == OperationType.UNKNOWN:
+        actual_result = ResolutionResult(
+            outcome=OutcomeType.NEEDS_CLARIFICATION,
+            reason_code="INTENT_NOT_RECOGNIZED"
+        )
     else:
-        outcome = "NEEDS_CLARIFICATION"
+        operation = {
+            "type": op_type.value,
+            "product_id": product_id,
+            "product_term": product_term,
+            "target_item_id": target_selected_id,
+            "quantity_value": quantity,
+            "quantity_unit": unit,
+            "replacement_product_id": product_id if op_type == OperationType.REPLACE_ITEM else None,
+        }
+        actual_result = ResolutionResult(
+            outcome=OutcomeType.OPERATION,
+            operation=operation,
+            evidence=["interpretation"]
+        )
 
-    # Verifica se o outcome esperado é alcançado
-    match_outcome = (outcome == expected_outcome)
-
-    # Se o outcome for OPERATION, verifica se a operação coincide com expected
-    match_operation = False
-    if match_outcome and expected_op:
-        exp_type = expected_op.get("type")
-        if exp_type == actual_op.type.value:
-            # Verifica campos obrigatórios (simplificado)
-            required_fields = {
-                "ADD_ITEM": ["product_id"],
-                "REMOVE_ITEM": ["target_item_id"],
-                "CHANGE_QUANTITY": ["target_item_id", "quantity_value"],
-                "REPLACE_ITEM": ["target_item_id", "replacement_product_id"],
-                "CONFIRM_ORDER": [],
-                "CANCEL_ORDER": [],
-            }
-            fields = required_fields.get(exp_type, [])
-            all_match = True
-            for field in fields:
-                exp_val = expected_op.get(field)
-                act_val = getattr(actual_op, field, None)
-                if exp_val != act_val:
-                    all_match = False
-                    break
-            if all_match and exp_type in ["CHANGE_QUANTITY", "ADD_ITEM"]:
-                if expected_op.get("quantity_value") != actual_op.quantity_value:
-                    all_match = False
-                if expected_op.get("quantity_unit") != actual_op.quantity_unit:
-                    all_match = False
-            if all_match:
-                match_operation = True
-
-    # Classifica a falha (se houver)
-    root_cause = "NONE"
-    downstream_outcome = "NOT_APPLICABLE"
-    if not match_outcome or not match_operation:
-        if not match_outcome and expected_outcome == "NEEDS_CLARIFICATION" and outcome == "OPERATION":
-            root_cause = "RESOLVED_OPERATION_COMPOSITION_ERROR"  # ou TARGET_RESOLUTION_ERROR
-            downstream_outcome = "WRONG_EXECUTION"
-        elif not match_outcome and expected_outcome == "OPERATION" and outcome == "NEEDS_CLARIFICATION":
-            root_cause = "INTENT_ERROR"  # ou ENTITY_ERROR
-            downstream_outcome = "UNNECESSARY_CLARIFICATION"
-        elif not match_operation:
-            # Verifica se o problema é target
-            if expected_op and expected_op.get("target_item_id") != actual_op.target_item_id:
-                root_cause = "TARGET_RESOLUTION_ERROR"
-                downstream_outcome = "WRONG_EXECUTION"
-            elif expected_op and expected_op.get("product_id") != actual_op.product_id:
-                root_cause = "PRODUCT_RESOLUTION_ERROR"
-                downstream_outcome = "WRONG_EXECUTION"
-            elif expected_op and expected_op.get("type") != actual_op.type.value:
-                root_cause = "INTENT_ERROR"
-                downstream_outcome = "WRONG_EXECUTION"
-            else:
-                root_cause = "OTHER"
-                downstream_outcome = "NO_STATE_CHANGE"
-    else:
-        if expected_outcome == "OPERATION":
-            downstream_outcome = "CORRECT_EXECUTION"
-        else:
-            downstream_outcome = "SAFE_CLARIFICATION"
+    # 7. Avaliação canônica
+    comparison = evaluate_resolution(expected, actual_result)
 
     # 8. Monta o trace
     trace = {
@@ -281,13 +244,13 @@ def diagnose_case(case: Dict[str, Any]) -> Dict[str, Any]:
         "target_selected": target_selected_id,
         "target_evidence": target_evidence,
         "target_source": target_source,
-        "resolution_outcome": outcome,
-        "actual_operation": actual_op.__dict__,
-        "match_outcome": match_outcome,
-        "match_operation": match_operation,
-        "overall_match": match_outcome and match_operation,
-        "root_cause": root_cause,
-        "downstream_outcome": downstream_outcome,
+        "actual_result": {
+            "outcome": actual_result.outcome.value,
+            "operation": actual_result.operation,
+            "reason_code": actual_result.reason_code
+        },
+        "comparison": comparison,
+        "exact_match": comparison["exact_match"],
     }
     return trace
 
@@ -312,7 +275,7 @@ def main():
 
     # Exibe resumo no terminal
     total = len(traces)
-    exact_matches = sum(1 for t in traces if t["overall_match"])
+    exact_matches = sum(1 for t in traces if t["exact_match"])
     print(f"\nTotal: {total}")
     print(f"Exact Matches: {exact_matches} ({exact_matches/total*100:.1f}%)")
 
@@ -331,22 +294,13 @@ def main():
         for t in fallback_cases:
             print(f"  {t['case_id']}: {t['message']} -> target: {t['target_selected']}")
 
-    # Erros por causa raiz
-    print("\nRoot Cause Distribution:")
-    root_causes = defaultdict(int)
-    for t in traces:
-        if not t["overall_match"]:
-            root_causes[t["root_cause"]] += 1
-    for cause, count in sorted(root_causes.items()):
-        print(f"  {cause}: {count}")
-
     # Casos de NEEDS_CLARIFICATION
     clarification_cases = [t for t in traces if t["expected"]["outcome"] == "NEEDS_CLARIFICATION"]
     if clarification_cases:
         print(f"\nNEEDS_CLARIFICATION cases ({len(clarification_cases)}):")
         for t in clarification_cases:
-            actual_outcome = t["resolution_outcome"]
-            match = t["match_outcome"]
+            actual_outcome = t["actual_result"]["outcome"]
+            match = t["exact_match"]
             print(f"  {t['case_id']}: expected CLARIFICATION, got {actual_outcome} {'✅' if match else '❌'}")
 
 if __name__ == "__main__":

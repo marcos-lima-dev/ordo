@@ -1,0 +1,64 @@
+{"text": "manda cinco quilo daquele provole", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "provolone"}]}}
+{"text": "me manda 5quilos de provolone", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "provolone"}]}}
+{"text": "queria dois provoles Tânia da", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "provolones"}, {"label": "marca", "text": "Tânia"}]}}
+{"text": "pode fechar", "labels": {"intent": "CONFIRM_ORDER", "entities": []}}
+{"text": "3 coloca provolones", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "provolones"}]}}
+{"text": "brie 1quilos", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "brie"}]}}
+{"text": "me manda duas mantegas", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "manteigas"}]}}
+{"text": "coloca 4 potes de burrata", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "burrata"}, {"label": "apresentacao", "text": "potes"}]}}
+{"text": "quero 6 bisnagas de Catupiry", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "Catupiry"}, {"label": "apresentacao", "text": "bisnagas"}]}}
+{"text": "pode fechar", "labels": {"intent": "CONFIRM_ORDER", "entities": []}}
+{"text": "pode fechar", "labels": {"intent": "CONFIRM_ORDER", "entities": []}}
+{"text": "3 coloca provolones", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "provolones"}]}}
+{"text": "tira o provole", "labels": {"intent": "REMOVE_ITEM", "entities": [{"label": "produto", "text": "provolone"}]}}
+{"text": "5k provolone", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "provolone"}]}}
+{"text": "bota 2 kg de gorgonzola", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "gorgonzola"}]}}
+{"text": "brie 1kg", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "brie"}]}}
+{"text": "quero 5kg de provolone", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "provolone"}]}}
+{"text": "na verdade 8kg são de manteiga", "labels": {"intent": "CHANGE_QUANTITY", "entities": [{"label": "produto", "text": "manteiga"}]}}
+{"text": "quero 5kg de provolone", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "provolone"}]}}
+{"text": "cancela tudo", "labels": {"intent": "CANCEL_ORDER", "entities": []}}
+{"text": "coloca 4 potes de burrata", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "burrata"}, {"label": "apresentacao", "text": "potes"}]}}
+{"text": "manda duas formas daquele provolone", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "provolone"}, {"label": "apresentacao", "text": "formas"}]}}
+{"text": "5k provole", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "provolone"}]}}
+{"text": "na verdade são 8kg de manteiga sem sal", "labels": {"intent": "CHANGE_QUANTITY", "entities": [{"label": "produto", "text": "manteiga"}]}}
+{"text": "coloca 4 potes de burrata", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "burrata"}, {"label": "apresentacao", "text": "potes"}]}}
+{"text": "manda cinco kg daquele provolone", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "provolone"}]}}
+{"text": "coloca 4 potes de burrata", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "burrata"}, {"label": "apresentacao", "text": "potes"}]}}
+{"text": "coloca 3 provoles", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "provolones"}]}}
+{"text": "me manda duas manteigas", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "manteigas"}]}}
+{"text": "manda 6 bisnagas de catupiry", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "Catupiry"}, {"label": "apresentacao", "text": "bisnagas"}]}}
+{"text": "gostaria de 6 bisnagas de catupiry", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "Catupiry"}, {"label": "apresentacao", "text": "bisnagas"}]}}
+{"text": "requeijão", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "requeijão"}]}}
+{"text": "manda duas formas daquele provolone", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "provolone"}, {"label": "apresentacao", "text": "formas"}]}}
+{"text": "5k provolone", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "provolone"}]}}
+{"text": "coloca 10 quilos da manteiga sem sal", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "manteiga sem sal"}]}}
+{"text": "tira provole o", "labels": {"intent": "REMOVE_ITEM", "entities": [{"label": "produto", "text": "provolone"}]}}
+{"text": "quero 5kg de provolne", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "provolone"}]}}
+{"text": "me manda dois provolones da Tania", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "provolones"}, {"label": "marca", "text": "Tânia"}]}}
+{"text": "quero 2 kg de gorgonzola", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "gorgonzola"}]}}
+{"text": "5k provolone", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "provolone"}]}}
+{"text": "quero dois provolones da Tânia", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "provolones"}, {"label": "marca", "text": "Tânia"}]}}
+{"text": "queria 6 bisnagas de catupiri", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "Catupiry"}, {"label": "apresentacao", "text": "bisnagas"}]}}
+{"text": "manda duas formas daquele provolne", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "provolone"}, {"label": "apresentacao", "text": "formas"}]}}
+{"text": "bota 5 kg provolone", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "provolone"}]}}
+{"text": "na verdade são 8quilos mantega de", "labels": {"intent": "CHANGE_QUANTITY", "entities": [{"label": "produto", "text": "manteiga"}]}}
+{"text": "manda duas formas daquele provolone", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "provolone"}, {"label": "apresentacao", "text": "formas"}]}}
+{"text": "queria 10 quilos da manteiga sal sem", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "manteiga sem sal"}]}}
+{"text": "cancela tudo", "labels": {"intent": "CANCEL_ORDER", "entities": []}}
+{"text": "de gostaria o provole da Tania", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "provolone"}, {"label": "marca", "text": "Tânia"}]}}
+{"text": "bota 5 quilos provole", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "provolone"}]}}
+{"text": "me duas manda mantegas", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "manteigas"}]}}
+{"text": "tira o provolone", "labels": {"intent": "REMOVE_ITEM", "entities": [{"label": "produto", "text": "provolone"}]}}
+{"text": "manda cinco k daquele provolne", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "provolone"}]}}
+{"text": "manda o provole da Tânia", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "provolone"}, {"label": "marca", "text": "Tânia"}]}}
+{"text": "coloca 10 quilos da manteiga sem sal sem sal", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "manteiga sem sal"}]}}
+{"text": "requeijão", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "requeijão"}]}}
+{"text": "me vê cinco quilos de provole", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "provolone"}]}}
+{"text": "quero o provole da Tânia", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "provolone"}, {"label": "marca", "text": "Tânia"}]}}
+{"text": "cancela tudo", "labels": {"intent": "CANCEL_ORDER", "entities": []}}
+{"text": "me cinco vê quilos de provolone", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "provolone"}]}}
+{"text": "me manda duas manteiga sem sals", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "manteigas"}]}}
+{"text": "quero 10 quilos da manteiga sem sal", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "manteiga sem sal"}]}}
+{"text": "cancela tudo", "labels": {"intent": "CANCEL_ORDER", "entities": []}}
+{"text": "quero o provolone da Tânia", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "provolone"}, {"label": "marca", "text": "Tânia"}]}}

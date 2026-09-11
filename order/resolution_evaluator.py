@@ -1,6 +1,6 @@
 from typing import Dict, Any, Optional
 from order.resolution_result import ResolutionResult, OutcomeType
-from order.operation_fields import REQUIRED_FIELDS_BY_TYPE, OPTIONAL_FIELDS
+from order.operation_fields import REQUIRED_FIELDS_BY_TYPE
 
 def evaluate_resolution(expected: Dict[str, Any], actual: ResolutionResult) -> Dict[str, Any]:
     result = {

@@ -1,0 +1,52 @@
+{"text": "quero 2 kg de mussarela", "expected": {"intent": "ADD_ITEM", "product_term": "mussarela", "quantity": {"value": 2.0, "unit": "KG"}}}
+{"text": "me vê 3 peças de queijo prato", "expected": {"intent": "ADD_ITEM", "product_term": "queijo prato", "quantity": {"value": 3.0, "unit": "peça"}}}
+{"text": "bota 1 forma de gouda", "expected": {"intent": "ADD_ITEM", "product_term": "gouda", "quantity": {"value": 1.0, "unit": "forma"}}}
+{"text": "manda 5 quilos de parmesão", "expected": {"intent": "ADD_ITEM", "product_term": "parmesão", "quantity": {"value": 5.0, "unit": "KG"}}}
+{"text": "coloca 10 kg de manteiga com sal", "expected": {"intent": "ADD_ITEM", "product_term": "manteiga com sal", "quantity": {"value": 10.0, "unit": "KG"}}}
+{"text": "quero 4 potes de requeijão", "expected": {"intent": "ADD_ITEM", "product_term": "requeijão", "quantity": {"value": 4.0, "unit": "pote"}}}
+{"text": "gostaria de 2 caixas de creme de leite", "expected": {"intent": "ADD_ITEM", "product_term": "creme de leite", "quantity": {"value": 2.0, "unit": "caixa"}}}
+{"text": "manda 3 garrafas de iogurte", "expected": {"intent": "ADD_ITEM", "product_term": "iogurte", "quantity": {"value": 3.0, "unit": "garrafa"}}}
+{"text": "quero 1 saco de tomate seco", "expected": {"intent": "ADD_ITEM", "product_term": "tomate seco", "quantity": {"value": 1.0, "unit": "saco"}}}
+{"text": "coloca 6 bisnagas de catupiry", "expected": {"intent": "ADD_ITEM", "product_term": "catupiry", "quantity": {"value": 6.0, "unit": "bisnaga"}}}
+{"text": "tira o provolone", "expected": {"intent": "REMOVE_ITEM", "product_term": "provolone"}}
+{"text": "remove a manteiga", "expected": {"intent": "REMOVE_ITEM", "product_term": "manteiga"}}
+{"text": "cancela o queijo", "expected": {"intent": "REMOVE_ITEM", "product_term": "queijo"}}
+{"text": "na verdade são 8 kg de manteiga", "expected": {"intent": "CHANGE_QUANTITY", "product_term": "manteiga", "quantity": {"value": 8.0, "unit": "KG"}}}
+{"text": "muda a quantidade para 3", "expected": {"intent": "CHANGE_QUANTITY"}}
+{"text": "quanto custa o provolone?", "expected": {"intent": "QUERY_PRICE", "product_term": "provolone"}}
+{"text": "tem brie?", "expected": {"intent": "QUERY_AVAILABILITY", "product_term": "brie"}}
+{"text": "pode fechar", "expected": {"intent": "CONFIRM_ORDER"}}
+{"text": "fecha a conta", "expected": {"intent": "CONFIRM_ORDER"}}
+{"text": "cancelar tudo", "expected": {"intent": "CANCEL_ORDER"}}
+{"text": "desiste do pedido", "expected": {"intent": "CANCEL_ORDER"}}
+{"text": "troca o provolone por gorgonzola", "expected": {"intent": "REPLACE_ITEM", "product_term": "gorgonzola"}}
+{"text": "substitui a manteiga por margarina", "expected": {"intent": "REPLACE_ITEM", "product_term": "margarina"}}
+{"text": "quero 5kg do queijo minas", "expected": {"intent": "ADD_ITEM", "product_term": "queijo minas", "quantity": {"value": 5.0, "unit": "KG"}}}
+{"text": "me manda 2 peças de queijo coalho", "expected": {"intent": "ADD_ITEM", "product_term": "queijo coalho", "quantity": {"value": 2.0, "unit": "peça"}}}
+{"text": "bota 3 formas de emmental", "expected": {"intent": "ADD_ITEM", "product_term": "emmental", "quantity": {"value": 3.0, "unit": "forma"}}}
+{"text": "quero 10 kg de ricota", "expected": {"intent": "ADD_ITEM", "product_term": "ricota", "quantity": {"value": 10.0, "unit": "KG"}}}
+{"text": "coloca 5 kg de queijo prato", "expected": {"intent": "ADD_ITEM", "product_term": "queijo prato", "quantity": {"value": 5.0, "unit": "KG"}}}
+{"text": "manda 2 caixas de requeijão", "expected": {"intent": "ADD_ITEM", "product_term": "requeijão", "quantity": {"value": 2.0, "unit": "caixa"}}}
+{"text": "quero 3 potes de cream cheese", "expected": {"intent": "ADD_ITEM", "product_term": "cream cheese", "quantity": {"value": 3.0, "unit": "pote"}}}
+{"text": "bota 1 bisnaga de requeijão", "expected": {"intent": "ADD_ITEM", "product_term": "requeijão", "quantity": {"value": 1.0, "unit": "bisnaga"}}}
+{"text": "coloca 4 garrafas de leite", "expected": {"intent": "ADD_ITEM", "product_term": "leite", "quantity": {"value": 4.0, "unit": "garrafa"}}}
+{"text": "quero 2kg de presunto", "expected": {"intent": "ADD_ITEM", "product_term": "presunto", "quantity": {"value": 2.0, "unit": "KG"}}}
+{"text": "me vê 5 kg de queijo muçarela", "expected": {"intent": "ADD_ITEM", "product_term": "queijo muçarela", "quantity": {"value": 5.0, "unit": "KG"}}}
+{"text": "manda 3 formas de provolone", "expected": {"intent": "ADD_ITEM", "product_term": "provolone", "quantity": {"value": 3.0, "unit": "forma"}}}
+{"text": "coloca 10 kg de manteiga sem sal", "expected": {"intent": "ADD_ITEM", "product_term": "manteiga sem sal", "quantity": {"value": 10.0, "unit": "KG"}}}
+{"text": "quero o provolone da Tânia", "expected": {"intent": "ADD_ITEM", "product_term": "provolone", "explicit_brand": "Tânia"}}
+{"text": "me manda duas manteigas sem sal", "expected": {"intent": "ADD_ITEM", "product_term": "manteigas sem sal", "quantity": {"value": 2.0}}}
+{"text": "bota 5 kg de queijo", "expected": {"intent": "ADD_ITEM", "product_term": "queijo", "quantity": {"value": 5.0, "unit": "KG"}}}
+{"text": "quero 2 queijos", "expected": {"intent": "ADD_ITEM", "product_term": "queijos", "quantity": {"value": 2.0}}}
+{"text": "coloca 1 kg de gorgonzola", "expected": {"intent": "ADD_ITEM", "product_term": "gorgonzola", "quantity": {"value": 1.0, "unit": "KG"}}}
+{"text": "manda 5 kg de brie", "expected": {"intent": "ADD_ITEM", "product_term": "brie", "quantity": {"value": 5.0, "unit": "KG"}}}
+{"text": "quero 3 potes de iogurte", "expected": {"intent": "ADD_ITEM", "product_term": "iogurte", "quantity": {"value": 3.0, "unit": "pote"}}}
+{"text": "bota 2 sacos de tomate seco", "expected": {"intent": "ADD_ITEM", "product_term": "tomate seco", "quantity": {"value": 2.0, "unit": "saco"}}}
+{"text": "coloca 1 forma de queijo", "expected": {"intent": "ADD_ITEM", "product_term": "queijo", "quantity": {"value": 1.0, "unit": "forma"}}}
+{"text": "quero 5 kg de parmesão", "expected": {"intent": "ADD_ITEM", "product_term": "parmesão", "quantity": {"value": 5.0, "unit": "KG"}}}
+{"text": "me vê 2 kg de mussarela", "expected": {"intent": "ADD_ITEM", "product_term": "mussarela", "quantity": {"value": 2.0, "unit": "KG"}}}
+{"text": "manda 1 kg de queijo coalho", "expected": {"intent": "ADD_ITEM", "product_term": "queijo coalho", "quantity": {"value": 1.0, "unit": "KG"}}}
+{"text": "quero 3 formas de gouda", "expected": {"intent": "ADD_ITEM", "product_term": "gouda", "quantity": {"value": 3.0, "unit": "forma"}}}
+{"text": "bota 2 kg de queijo prato", "expected": {"intent": "ADD_ITEM", "product_term": "queijo prato", "quantity": {"value": 2.0, "unit": "KG"}}}
+{"text": "coloca 4 peças de queijo minas", "expected": {"intent": "ADD_ITEM", "product_term": "queijo minas", "quantity": {"value": 4.0, "unit": "peça"}}}
+{"text": "quero 1 kg de ricota", "expected": {"intent": "ADD_ITEM", "product_term": "ricota", "quantity": {"value": 1.0, "unit": "KG"}}}

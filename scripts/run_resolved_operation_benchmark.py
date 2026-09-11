@@ -1,8 +1,6 @@
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from order.resolution_result import ResolutionResult, OutcomeType
-from order.resolution_evaluator import evaluate_resolution
 
 import json
 from typing import Dict, List, Any, Optional
@@ -10,8 +8,8 @@ from collections import defaultdict
 
 from order.state import OrderState, OrderItem
 from order.resolved_operation import ResolvedOperation, OperationType
-from order.engine import OrderEngine
-from order.catalog_retriever import CatalogRetriever
+from order.resolution_result import ResolutionResult, OutcomeType
+from order.resolution_evaluator import evaluate_resolution
 from benchmark.adapters.modular import ModularAdapter
 from pipeline.reference_resolver import ReferenceResolver
 
@@ -39,7 +37,7 @@ def build_state(state_data: Dict[str, Any]) -> OrderState:
     return state
 
 # =============================================
-# Pipeline upstream (gera ResolvedOperation)
+# Pipeline upstream (gera ResolutionResult)
 # =============================================
 
 _adapter = None
@@ -57,7 +55,7 @@ def get_resolver():
         _resolver = ReferenceResolver()
     return _resolver
 
-def resolve_operation(message: str, state: OrderState) -> ResolvedOperation:
+def resolve_operation(message: str, state: OrderState) -> ResolutionResult:
     adapter = get_adapter()
     resolver = get_resolver()
     
@@ -75,7 +73,10 @@ def resolve_operation(message: str, state: OrderState) -> ResolvedOperation:
     }
     op_type = intent_map.get(intent)
     if op_type is None:
-        return ResolvedOperation(type=OperationType.UNKNOWN)
+        return ResolutionResult(
+            outcome=OutcomeType.NEEDS_CLARIFICATION,
+            reason_code="INTENT_NOT_RECOGNIZED"
+        )
     
     product_term = interpretation.get("product_term")
     quantity = interpretation.get("quantity", {}).get("value")
@@ -97,70 +98,55 @@ def resolve_operation(message: str, state: OrderState) -> ResolvedOperation:
                 target_id = item.id
                 break
     
+    # Fallback para último item (comportamento atual, será avaliado)
+    if not target_id and state.items:
+        target_id = state.items[-1].id
+    
     product_id = None
     if candidates and len(candidates) == 1:
         product_id = candidates[0]
     
-    return ResolvedOperation(
-        type=op_type,
-        product_id=product_id,
-        product_term=product_term,
-        target_item_id=target_id,
-        quantity_value=quantity,
-        quantity_unit=unit,
+    # Validação por tipo de operação
+    if op_type == OperationType.ADD_ITEM and not product_id:
+        return ResolutionResult(
+            outcome=OutcomeType.NEEDS_CLARIFICATION,
+            reason_code="AMBIGUOUS_PRODUCT"
+        )
+    
+    if op_type in [OperationType.REMOVE_ITEM, OperationType.CHANGE_QUANTITY, OperationType.REPLACE_ITEM]:
+        if not target_id:
+            return ResolutionResult(
+                outcome=OutcomeType.NEEDS_CLARIFICATION,
+                reason_code="MISSING_TARGET"
+            )
+    
+    if op_type == OperationType.CHANGE_QUANTITY and quantity is None:
+        return ResolutionResult(
+            outcome=OutcomeType.NEEDS_CLARIFICATION,
+            reason_code="MISSING_QUANTITY"
+        )
+    
+    if op_type == OperationType.REPLACE_ITEM and not product_id:
+        return ResolutionResult(
+            outcome=OutcomeType.NEEDS_CLARIFICATION,
+            reason_code="MISSING_REPLACEMENT"
+        )
+    
+    operation = {
+        "type": op_type.value,
+        "product_id": product_id,
+        "product_term": product_term,
+        "target_item_id": target_id,
+        "quantity_value": quantity,
+        "quantity_unit": unit,
+        "replacement_product_id": product_id if op_type == OperationType.REPLACE_ITEM else None,
+    }
+    
+    return ResolutionResult(
+        outcome=OutcomeType.OPERATION,
+        operation=operation,
         evidence=["interpretation"]
     )
-
-# =============================================
-# Comparação com ground truth
-# =============================================
-
-def compare_operations(expected: Dict, actual: ResolvedOperation) -> Dict[str, Any]:
-    exp_op = expected.get("operation")
-    outcome = expected.get("outcome", "UNKNOWN")
-    
-    if exp_op is None:
-        if outcome in ["NEEDS_CLARIFICATION", "BLOCKED"]:
-            if actual.type == OperationType.UNKNOWN:
-                return {"match": True, "details": "correctly no operation (clarification)"}
-            return {"match": False, "details": f"expected {outcome}, got operation {actual.type.value}"}
-        return {"match": False, "details": f"unexpected outcome: {outcome}"}
-    
-    if actual.type == OperationType.UNKNOWN:
-        return {"match": False, "details": "expected operation but got UNKNOWN"}
-    
-    exp_type = exp_op.get("type")
-    if actual.type.value != exp_type:
-        return {"match": False, "details": f"type mismatch: expected {exp_type}, got {actual.type.value}"}
-    
-    required_fields = {
-        "ADD_ITEM": ["product_id"],
-        "REMOVE_ITEM": ["target_item_id"],
-        "CHANGE_QUANTITY": ["target_item_id", "quantity_value"],
-        "REPLACE_ITEM": ["target_item_id", "replacement_product_id"],
-        "CONFIRM_ORDER": [],
-        "CANCEL_ORDER": [],
-    }
-    fields = required_fields.get(exp_type, [])
-    for field in fields:
-        exp_val = exp_op.get(field)
-        act_val = getattr(actual, field, None)
-        if exp_val != act_val:
-            return {"match": False, "details": f"{field} mismatch: expected {exp_val}, got {act_val}"}
-    
-    if exp_type == "CHANGE_QUANTITY":
-        if exp_op.get("quantity_value") != actual.quantity_value:
-            return {"match": False, "details": f"quantity mismatch: expected {exp_op.get('quantity_value')}, got {actual.quantity_value}"}
-        if exp_op.get("quantity_unit") != actual.quantity_unit:
-            return {"match": False, "details": f"unit mismatch: expected {exp_op.get('quantity_unit')}, got {actual.quantity_unit}"}
-    
-    if exp_type == "ADD_ITEM":
-        if exp_op.get("quantity_value") != actual.quantity_value:
-            return {"match": False, "details": f"quantity mismatch: expected {exp_op.get('quantity_value')}, got {actual.quantity_value}"}
-        if exp_op.get("quantity_unit") != actual.quantity_unit:
-            return {"match": False, "details": f"unit mismatch: expected {exp_op.get('quantity_unit')}, got {actual.quantity_unit}"}
-    
-    return {"match": True, "details": "exact match"}
 
 # =============================================
 # Métricas
@@ -213,13 +199,17 @@ def main():
         message = case["message"]
         expected = case["expected"]
         actual = resolve_operation(message, state)
-        comparison = compare_operations(expected, actual)
+        comparison = evaluate_resolution(expected, actual)
         dev_results.append({
             "id": case["id"],
-            "match": comparison["match"],
+            "match": comparison["exact_match"],
             "details": comparison["details"],
             "expected": expected,
-            "actual": actual.__dict__ if actual else None
+            "actual": {
+                "outcome": actual.outcome.value,
+                "operation": actual.operation,
+                "reason_code": actual.reason_code
+            }
         })
     
     dev_metrics = compute_metrics(dev_results)
@@ -230,19 +220,23 @@ def main():
         message = case["message"]
         expected = case["expected"]
         actual = resolve_operation(message, state)
-        comparison = compare_operations(expected, actual)
+        comparison = evaluate_resolution(expected, actual)
         holdout_results.append({
             "id": case["id"],
-            "match": comparison["match"],
+            "match": comparison["exact_match"],
             "details": comparison["details"],
             "expected": expected,
-            "actual": actual.__dict__ if actual else None
+            "actual": {
+                "outcome": actual.outcome.value,
+                "operation": actual.operation,
+                "reason_code": actual.reason_code
+            }
         })
     
     holdout_metrics = compute_metrics(holdout_results)
     
     print("\n" + "="*60)
-    print("RESOLVED OPERATION BENCHMARK - BASELINE")
+    print("RESOLVED OPERATION BENCHMARK - BASELINE CANÔNICA")
     print("="*60)
     
     print("\n--- DEV ---")
@@ -264,7 +258,7 @@ def main():
         json.dump({
             "dev": {"results": dev_results, "metrics": dev_metrics},
             "holdout": {"results": holdout_results, "metrics": holdout_metrics}
-        }, f, indent=2, ensure_ascii=False, default=str)  # <-- CORREÇÃO AQUI
+        }, f, indent=2, ensure_ascii=False, default=str)
     print(f"\nResultados salvos em {output_path}")
 
 if __name__ == "__main__":

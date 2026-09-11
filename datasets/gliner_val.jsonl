@@ -1,0 +1,8 @@
+{"text": "pode fechar", "labels": {"intent": "CONFIRM_ORDER", "entities": []}}
+{"text": "brie 1kg", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "brie"}]}}
+{"text": "cinco manda k daquele provolone", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "provolone"}]}}
+{"text": "me manda 2 quilos de gorgonzola", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "gorgonzola"}]}}
+{"text": "na verdade são 8kg de manteiga", "labels": {"intent": "CHANGE_QUANTITY", "entities": [{"label": "produto", "text": "manteiga"}]}}
+{"text": "requeijão", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "requeijão"}]}}
+{"text": "me vê cinco quilos de provolone", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "provolone"}]}}
+{"text": "tira o provolone", "labels": {"intent": "REMOVE_ITEM", "entities": [{"label": "produto", "text": "provolone"}]}}

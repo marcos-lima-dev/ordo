@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ResolvedOperationBenchmark",
+  "type": "object",
+  "properties": {
+    "id": { "type": "string" },
+    "state_before": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "product_term": { "type": "string" },
+              "product_id": { "type": ["string", "null"] },
+              "quantity": { "type": ["number", "null"] },
+              "unit": { "type": ["string", "null"] },
+              "resolved": { "type": "boolean" },
+              "needs_clarification": { "type": "boolean" }
+            }
+          }
+        },
+        "status": { "type": "string" },
+        "pending_resolution": { "type": ["object", "null"] }
+      }
+    },
+    "message": { "type": "string" },
+    "expected": {
+      "type": "object",
+      "properties": {
+        "outcome": {
+          "type": "string",
+          "enum": ["OPERATION", "NEEDS_CLARIFICATION", "NO_OP", "BLOCKED"]
+        },
+        "operation": {
+          "type": ["object", "null"],
+          "properties": {
+            "type": { "type": "string" },
+            "target_item_id": { "type": ["string", "null"] },
+            "product_id": { "type": ["string", "null"] },
+            "quantity_value": { "type": ["number", "null"] },
+            "quantity_unit": { "type": ["string", "null"] },
+            "replacement_product_id": { "type": ["string", "null"] }
+          }
+        },
+        "pending_resolution": { "type": ["object", "null"] }
+      },
+      "required": ["outcome"]
+    }
+  }
+}

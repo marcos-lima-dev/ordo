@@ -1,20 +1,14 @@
 import random
-from .base import CandidateAdapter
+from .base import CandidateAdapter, register_adapter
 from .perfect_mock import PerfectMockAdapter
 
+@register_adapter("broken")
 class BrokenMockAdapter(CandidateAdapter):
-    """
-    Mock que introduz erros propositais para testar o evaluator.
-    """
-
     def __init__(self):
         self._perfect = PerfectMockAdapter()
 
     def predict(self, message: str) -> dict:
-        # Obtém a resposta perfeita
         perfect = self._perfect.predict(message)
-
-        # Escolhe aleatoriamente um tipo de erro para introduzir
         errors = [
             self._wrong_intent,
             self._wrong_product_term,
@@ -83,7 +77,6 @@ class BrokenMockAdapter(CandidateAdapter):
         return perfect
 
     def _wrong_candidates(self, perfect):
-        # Troca por um SKU inexistente
         perfect["catalog_candidates"] = ["CQ-999"]
         return perfect
 
@@ -95,13 +88,11 @@ class BrokenMockAdapter(CandidateAdapter):
         return perfect
 
     def _unsafe_resolution(self, perfect):
-        # Se expected é AMBIGUOUS, torna EXACT_MATCH ou HIGH_CONFIDENCE
         if perfect["product_resolution_status"] == "AMBIGUOUS":
             perfect["product_resolution_status"] = random.choice(["EXACT_MATCH", "HIGH_CONFIDENCE"])
         return perfect
 
     def _schema_violation(self, perfect):
-        # Remove um campo obrigatório
         if "intent" in perfect:
             del perfect["intent"]
         return perfect

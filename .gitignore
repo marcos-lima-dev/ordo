@@ -1,6 +1,27 @@
+# Ambiente virtual
 .venv/
+venv/
+
+# Python
 __pycache__/
 *.pyc
 *.pyo
+*.pyd
+.pytest_cache/
+
+# Modelos treinados
+models/
+
+# Relatórios gerados
+reports/*.json
+
+# Datasets auxiliares
+datasets/development/
+datasets/validation/
+datasets/holdout/
+datasets/entities/
+datasets/intent/
+
+# Sistema
 .DS_Store
 *.log

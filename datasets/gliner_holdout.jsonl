@@ -1,0 +1,8 @@
+{"text": "me manda dois provoles da Tânia", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "provolones"}, {"label": "marca", "text": "Tânia"}]}}
+{"text": "me vê cinco quilos de provolone", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "provolone"}]}}
+{"text": "bota 5 k provole", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "provolone"}]}}
+{"text": "requeijão", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "requeijão"}]}}
+{"text": "coloca 3 provolones", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "provolones"}]}}
+{"text": "bota 5 kg provolone", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "provolone"}]}}
+{"text": "brie 1kg", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "brie"}]}}
+{"text": "coloca 2 kg gorgonzola de", "labels": {"intent": "ADD_ITEM", "entities": [{"label": "produto", "text": "gorgonzola"}]}}
