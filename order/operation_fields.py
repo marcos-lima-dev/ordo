@@ -9,6 +9,16 @@ REQUIRED_FIELDS_BY_TYPE = {
     OperationType.CANCEL_ORDER: [],
 }
 
+# Campos semanticamente relevantes por tipo (para o evaluator)
+FIELDS_BY_TYPE = {
+    OperationType.ADD_ITEM: ["product_id", "quantity_value", "quantity_unit"],
+    OperationType.REMOVE_ITEM: ["target_item_id"],
+    OperationType.CHANGE_QUANTITY: ["target_item_id", "quantity_value", "quantity_unit"],
+    OperationType.REPLACE_ITEM: ["target_item_id", "replacement_product_id"],
+    OperationType.CONFIRM_ORDER: [],
+    OperationType.CANCEL_ORDER: [],
+}
+
 OPTIONAL_FIELDS = {
     "quantity_value",
     "quantity_unit",
