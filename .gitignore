@@ -25,3 +25,4 @@ datasets/intent/
 # Sistema
 .DS_Store
 *.log
+reports/*.json
