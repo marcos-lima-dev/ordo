@@ -3,24 +3,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import json
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
 from collections import defaultdict
 
 from order.state import OrderState, OrderItem
-from order.resolved_operation import ResolvedOperation, OperationType
-from order.resolution_result import ResolutionResult, OutcomeType
-from order.resolution_evaluator import evaluate_resolution
-from order.target_resolver import TargetResolver, TargetStatus
-from order.pending_resolver import PendingResolver, PendingStatus
 from order.pending import PendingResolution
-from benchmark.adapters.modular import ModularAdapter
-from pipeline.reference_resolver import ReferenceResolver
-from order.catalog_retriever import CatalogRetriever
-from order.product_resolver import ProductResolver
+from pipeline.resolution_pipeline import resolve_operation
 
-# =============================================
-# Carregamento dos datasets
-# =============================================
 
 def load_dev_set():
     path = Path("datasets/resolved_operation_dev.jsonl")
@@ -37,11 +26,10 @@ def build_state(state_data: Dict[str, Any]) -> OrderState:
             quantity=item_data.get("quantity"),
             unit=item_data.get("unit"),
             resolved=item_data.get("resolved", False),
-            needs_clarification=item_data.get("needs_clarification", False)
+            needs_clarification=item_data.get("needs_clarification", False),
         )
         state.add_item(item)
     state.status = state_data.get("status", "OPEN")
-    # Pending Resolution do ground truth
     pending_data = state_data.get("pending_resolution")
     if pending_data:
         state.pending_resolution = PendingResolution(
@@ -56,288 +44,24 @@ def build_state(state_data: Dict[str, Any]) -> OrderState:
     return state
 
 
-# =============================================
-# Caches
-# =============================================
-
-_adapter = None
-_resolver = None
-_target_resolver = None
-_pending_resolver = None
-_catalog_retriever = None
-_product_resolver = None
-
-
-def get_adapter():
-    global _adapter
-    if _adapter is None:
-        _adapter = ModularAdapter()
-    return _adapter
-
-
-def get_resolver():
-    global _resolver
-    if _resolver is None:
-        _resolver = ReferenceResolver()
-    return _resolver
-
-
-def get_target_resolver():
-    global _target_resolver
-    if _target_resolver is None:
-        _target_resolver = TargetResolver()
-    return _target_resolver
-
-
-def get_pending_resolver():
-    global _pending_resolver
-    if _pending_resolver is None:
-        _pending_resolver = PendingResolver()
-    return _pending_resolver
-
-
-def get_catalog_retriever():
-    global _catalog_retriever
-    if _catalog_retriever is None:
-        _catalog_retriever = CatalogRetriever()
-    return _catalog_retriever
-
-
-def get_product_resolver():
-    global _product_resolver
-    if _product_resolver is None:
-        _product_resolver = ProductResolver()
-    return _product_resolver
-
-
-# =============================================
-# Diagnóstico de um caso
-# =============================================
-
-def diagnose_case(case: Dict[str, Any]) -> Dict[str, Any]:
-    state_before = build_state(case["state_before"])
-    message = case["message"]
-    expected = case["expected"]
-
-    adapter = get_adapter()
-    resolver = get_resolver()
-    target_resolver = get_target_resolver()
-    pending_resolver = get_pending_resolver()
-    catalog_retriever = get_catalog_retriever()
-    product_resolver = get_product_resolver()
-
-    # 1. Reference Resolution
-    ref_signal = resolver.resolve(message, state_before)
-
-    # 2. Interpretação (NLP)
-    interpretation = adapter.predict(message)
-    intent = interpretation.get("intent")
-    product_term = interpretation.get("product_term")
-    brand = interpretation.get("explicit_brand")
-    presentation = interpretation.get("explicit_presentation")
-    quantity = interpretation.get("quantity", {}).get("value")
-    unit = interpretation.get("quantity", {}).get("unit")
-
-    # 3. PendingResolver (ANTES da interpretação como nova operação)
-    pending_result = pending_resolver.resolve(
-        message=message,
-        state=state_before,
-        semantic_signals=interpretation,
-        catalog_retriever=catalog_retriever,
-    )
-
-    # 4. Catalog retrieval (para diagnóstico)
-    catalog_candidates = catalog_retriever.retrieve_with_constraints(
-        message, brand=brand, presentation=presentation
-    )
-    product_resolution_status = product_resolver.resolve(
-        catalog_candidates, product_term=product_term, brand=brand
-    )
-
-    # 5. Se o pending foi resolvido, gera ADD_ITEM
-    if pending_result.status == PendingStatus.RESOLVED:
-        pending = state_before.pending_resolution
-        actual_result = ResolutionResult(
-            outcome=OutcomeType.OPERATION,
-            operation={
-                "type": "ADD_ITEM",
-                "product_id": pending_result.resolved_product_id,
-                "product_term": pending.product_term if pending else None,
-                "quantity_value": pending.quantity if pending else None,
-                "quantity_unit": pending.unit if pending else None,
-                "target_item_id": None,
-                "replacement_product_id": None,
-            },
-            evidence=pending_result.evidence,
-        )
-    elif pending_result.status == PendingStatus.AMBIGUOUS:
-        actual_result = ResolutionResult(
-            outcome=OutcomeType.NEEDS_CLARIFICATION,
-            reason_code=pending_result.reason_code or "AMBIGUOUS_PRODUCT",
-        )
-    elif pending_result.status == PendingStatus.INCOMPATIBLE:
-        actual_result = ResolutionResult(
-            outcome=OutcomeType.NEEDS_CLARIFICATION,
-            reason_code=pending_result.reason_code or "INCOMPATIBLE_CONSTRAINT",
-        )
-    else:
-        # NOT_APPLICABLE: fluxo normal
-        intent_map = {
-            "ADD_ITEM": OperationType.ADD_ITEM,
-            "REMOVE_ITEM": OperationType.REMOVE_ITEM,
-            "CHANGE_QUANTITY": OperationType.CHANGE_QUANTITY,
-            "REPLACE_ITEM": OperationType.REPLACE_ITEM,
-            "CONFIRM_ORDER": OperationType.CONFIRM_ORDER,
-            "CANCEL_ORDER": OperationType.CANCEL_ORDER,
-        }
-        op_type = intent_map.get(intent)
-        if op_type is None:
-            op_type = OperationType.UNKNOWN
-
-        target_selected_id = None
-        target_source = "NOT_APPLICABLE"
-        target_evidence = None
-        target_result = None
-
-        if op_type in [OperationType.REMOVE_ITEM, OperationType.CHANGE_QUANTITY, OperationType.REPLACE_ITEM]:
-            target_result = target_resolver.resolve(
-                message=message,
-                state=state_before,
-                reference_product_term=product_term,
-                ref_signal=ref_signal,
-            )
-            target_selected_id = target_result.target_item_id
-            target_source = target_result.source.value
-            target_evidence = "; ".join(target_result.evidence)
-
-        product_id = None
-        if catalog_candidates and len(catalog_candidates) == 1:
-            product_id = catalog_candidates[0]
-
-        if op_type in [OperationType.REMOVE_ITEM, OperationType.CHANGE_QUANTITY, OperationType.REPLACE_ITEM]:
-            if target_result is None or target_result.status != TargetStatus.RESOLVED:
-                actual_result = ResolutionResult(
-                    outcome=OutcomeType.NEEDS_CLARIFICATION,
-                    reason_code=(target_result.reason_code if target_result else "MISSING_TARGET")
-                )
-            elif op_type == OperationType.CHANGE_QUANTITY and quantity is None:
-                actual_result = ResolutionResult(
-                    outcome=OutcomeType.NEEDS_CLARIFICATION,
-                    reason_code="MISSING_QUANTITY"
-                )
-            elif op_type == OperationType.REPLACE_ITEM and not product_id:
-                actual_result = ResolutionResult(
-                    outcome=OutcomeType.NEEDS_CLARIFICATION,
-                    reason_code="AMBIGUOUS_PRODUCT"
-                )
-            else:
-                operation = {
-                    "type": op_type.value,
-                    "product_id": product_id,
-                    "product_term": product_term,
-                    "target_item_id": target_selected_id,
-                    "quantity_value": quantity,
-                    "quantity_unit": unit,
-                    "replacement_product_id": product_id if op_type == OperationType.REPLACE_ITEM else None,
-                }
-                actual_result = ResolutionResult(
-                    outcome=OutcomeType.OPERATION,
-                    operation=operation,
-                    evidence=["interpretation"]
-                )
-        elif op_type == OperationType.ADD_ITEM:
-            if not product_id:
-                actual_result = ResolutionResult(
-                    outcome=OutcomeType.NEEDS_CLARIFICATION,
-                    reason_code="AMBIGUOUS_PRODUCT"
-                )
-            else:
-                operation = {
-                    "type": op_type.value,
-                    "product_id": product_id,
-                    "product_term": product_term,
-                    "target_item_id": None,
-                    "quantity_value": quantity,
-                    "quantity_unit": unit,
-                    "replacement_product_id": None,
-                }
-                actual_result = ResolutionResult(
-                    outcome=OutcomeType.OPERATION,
-                    operation=operation,
-                    evidence=["interpretation"]
-                )
-        elif op_type in [OperationType.CONFIRM_ORDER, OperationType.CANCEL_ORDER]:
-            operation = {
-                "type": op_type.value,
-                "product_id": None,
-                "product_term": None,
-                "target_item_id": None,
-                "quantity_value": None,
-                "quantity_unit": None,
-                "replacement_product_id": None,
-            }
-            actual_result = ResolutionResult(
-                outcome=OutcomeType.OPERATION,
-                operation=operation,
-                evidence=["interpretation"]
-            )
-        else:
-            actual_result = ResolutionResult(
-                outcome=OutcomeType.NEEDS_CLARIFICATION,
-                reason_code="INTENT_NOT_RECOGNIZED"
-            )
-
-    # 6. Avaliação canônica
-    comparison = evaluate_resolution(expected, actual_result)
-
-    # 7. Trace
-    trace = {
-        "case_id": case["id"],
-        "message": message,
-        "state_before": state_before.to_dict(),
-        "expected": expected,
-        "intent_signal": intent,
-        "entity_signals": {
-            "product_term": product_term,
-            "brand": brand,
-            "presentation": presentation,
-            "quantity": quantity,
-            "unit": unit,
-        },
-        "reference_signal": {
-            "type": ref_signal.type.value if ref_signal else "UNKNOWN",
-            "product_term": ref_signal.product_term if ref_signal else None,
-        },
-        "pending_result": {
-            "status": pending_result.status.value,
-            "resolved_product_id": pending_result.resolved_product_id,
-            "evidence": pending_result.evidence,
-        },
-        "catalog_candidates": catalog_candidates,
-        "product_resolution_status": product_resolution_status,
-        "actual_result": {
-            "outcome": actual_result.outcome.value,
-            "operation": actual_result.operation,
-            "reason_code": actual_result.reason_code
-        },
-        "comparison": comparison,
-        "exact_match": comparison["exact_match"],
-    }
-    return trace
-
-
-# =============================================
-# Main
-# =============================================
-
 def main():
     dev_cases = load_dev_set()
     print(f"Diagnosticando {len(dev_cases)} casos do DEV...")
 
     traces = []
     for case in dev_cases:
-        trace = diagnose_case(case)
-        traces.append(trace)
+        state = build_state(case["state_before"])
+        actual = resolve_operation(case["message"], state)
+        traces.append({
+            "case_id": case["id"],
+            "message": case["message"],
+            "expected": case["expected"],
+            "actual": {
+                "outcome": actual.outcome.value,
+                "operation": actual.operation,
+                "reason_code": actual.reason_code,
+            },
+        })
 
     output_path = Path("reports/dev_diagnostic.json")
     with open(output_path, "w") as f:
@@ -345,27 +69,14 @@ def main():
     print(f"Relatório salvo em {output_path}")
 
     total = len(traces)
-    exact_matches = sum(1 for t in traces if t["exact_match"])
-    print(f"\nTotal: {total}")
-    print(f"Exact Matches: {exact_matches} ({exact_matches/total*100:.1f}%)")
-
-    # Pending Resolution distribution
-    print("\nPending Resolution Distribution:")
-    pending_statuses = defaultdict(int)
-    for t in traces:
-        pending_statuses[t["pending_result"]["status"]] += 1
-    for status, count in sorted(pending_statuses.items()):
-        print(f"  {status}: {count}")
-
     clarification_cases = [t for t in traces if t["expected"]["outcome"] == "NEEDS_CLARIFICATION"]
-    if clarification_cases:
-        print(f"\nNEEDS_CLARIFICATION cases ({len(clarification_cases)}):")
-        for t in clarification_cases:
-            actual_outcome = t["actual_result"]["outcome"]
-            match = t["exact_match"]
-            reason_exp = t["expected"].get("reason_code", "-")
-            reason_act = t["actual_result"].get("reason_code", "-")
-            print(f"  {t['case_id']}: expected {reason_exp}, got {reason_act} {'✅' if match else '❌'}")
+    print(f"\nTotal: {total}")
+    print(f"\nNEEDS_CLARIFICATION cases ({len(clarification_cases)}):")
+    for t in clarification_cases:
+        reason_exp = t["expected"].get("reason_code", "-")
+        reason_act = t["actual"].get("reason_code", "-")
+        match = (reason_exp == reason_act)
+        print(f"  {t['case_id']}: expected {reason_exp}, got {reason_act} {'✅' if match else '❌'}")
 
 
 if __name__ == "__main__":
