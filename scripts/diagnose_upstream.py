@@ -10,6 +10,7 @@ from order.state import OrderState, OrderItem
 from order.resolved_operation import ResolvedOperation, OperationType
 from order.resolution_result import ResolutionResult, OutcomeType
 from order.resolution_evaluator import evaluate_resolution
+from order.target_resolver import TargetResolver, TargetStatus
 from benchmark.adapters.modular import ModularAdapter
 from pipeline.reference_resolver import ReferenceResolver
 from order.catalog_retriever import CatalogRetriever
@@ -47,6 +48,7 @@ _adapter = None
 _resolver = None
 _catalog_retriever = None
 _product_resolver = None
+_target_resolver = None
 
 def get_adapter():
     global _adapter
@@ -72,17 +74,22 @@ def get_product_resolver():
         _product_resolver = ProductResolver()
     return _product_resolver
 
+def get_target_resolver():
+    global _target_resolver
+    if _target_resolver is None:
+        _target_resolver = TargetResolver()
+    return _target_resolver
+
 def diagnose_case(case: Dict[str, Any]) -> Dict[str, Any]:
     state_before = build_state(case["state_before"])
     message = case["message"]
     expected = case["expected"]
-    expected_op = expected.get("operation")
-    expected_outcome = expected.get("outcome")
 
     adapter = get_adapter()
     resolver = get_resolver()
     catalog_retriever = get_catalog_retriever()
     product_resolver = get_product_resolver()
+    target_resolver = get_target_resolver()
 
     # 1. Reference Resolution
     ref_signal = resolver.resolve(message, state_before)
@@ -95,24 +102,16 @@ def diagnose_case(case: Dict[str, Any]) -> Dict[str, Any]:
     presentation = interpretation.get("explicit_presentation")
     quantity = interpretation.get("quantity", {}).get("value")
     unit = interpretation.get("quantity", {}).get("unit")
-    candidates_raw = interpretation.get("catalog_candidates", [])
-    resolution_status = interpretation.get("product_resolution_status")
 
-    # 3. Catalog retrieval (para verificar candidatos)
+    # 3. Catalog retrieval
     catalog_candidates = catalog_retriever.retrieve_with_constraints(
-        message,
-        brand=brand,
-        presentation=presentation
+        message, brand=brand, presentation=presentation
     )
-
-    # 4. Product resolution (para verificar status)
     product_resolution_status = product_resolver.resolve(
-        catalog_candidates,
-        product_term=product_term,
-        brand=brand
+        catalog_candidates, product_term=product_term, brand=brand
     )
 
-    # 5. Target Resolution (replicar a lógica do resolve_operation)
+    # 4. Target Resolution (com TargetResolver)
     intent_map = {
         "ADD_ITEM": OperationType.ADD_ITEM,
         "REMOVE_ITEM": OperationType.REMOVE_ITEM,
@@ -125,106 +124,110 @@ def diagnose_case(case: Dict[str, Any]) -> Dict[str, Any]:
     if op_type is None:
         op_type = OperationType.UNKNOWN
 
-    # Target candidates (itens existentes no estado que podem ser alvo)
-    target_candidates = [item.id for item in state_before.items]
-    target_evidence = None
-    target_source = "UNKNOWN"
+    target_result = None
     target_selected_id = None
+    target_source = "NOT_APPLICABLE"
+    target_evidence = None
 
-    # Verifica se há referência explícita a um item
-    explicit_target = None
-    if ref_signal and ref_signal.product_term:
-        for item in state_before.items:
-            if item.product_term == ref_signal.product_term:
-                explicit_target = item.id
-                target_source = "EXPLICIT_ITEM_REFERENCE"
-                break
-    if explicit_target:
-        target_selected_id = explicit_target
-        target_evidence = f"ref_signal.product_term: {ref_signal.product_term}"
-    else:
-        # Verifica se a mensagem menciona um produto existente
-        if product_term:
-            for item in state_before.items:
-                if item.product_term == product_term:
-                    target_selected_id = item.id
-                    target_source = "PRODUCT_MENTION"
-                    target_evidence = f"product_term: {product_term}"
-                    break
-        # Se ainda não encontrou, verifica PendingResolution
-        if not target_selected_id and state_before.pending_resolution:
-            pending = state_before.pending_resolution
-            if pending.product_term:
-                for item in state_before.items:
-                    if item.product_term == pending.product_term:
-                        target_selected_id = item.id
-                        target_source = "PENDING_REFERENCE"
-                        target_evidence = f"pending.product_term: {pending.product_term}"
-                        break
-        # Fallback: último item (se houver)
-        if not target_selected_id and state_before.items:
-            target_selected_id = state_before.items[-1].id
-            target_source = "LAST_ITEM_FALLBACK"
-            target_evidence = "no explicit target, using last item"
+    if op_type in [OperationType.REMOVE_ITEM, OperationType.CHANGE_QUANTITY, OperationType.REPLACE_ITEM]:
+        target_result = target_resolver.resolve(
+            message=message,
+            state=state_before,
+            reference_product_term=product_term,
+            ref_signal=ref_signal,
+        )
+        target_selected_id = target_result.target_item_id
+        target_source = target_result.source.value
+        target_evidence = "; ".join(target_result.evidence)
 
-    # 6. Monta a operação (mesma lógica do resolve_operation)
+    # 5. Monta a operação (mesma lógica do resolve_operation)
     product_id = None
     if catalog_candidates and len(catalog_candidates) == 1:
         product_id = catalog_candidates[0]
 
-    # Validação por tipo
-    if op_type == OperationType.ADD_ITEM and not product_id:
-        actual_result = ResolutionResult(
-            outcome=OutcomeType.NEEDS_CLARIFICATION,
-            reason_code="AMBIGUOUS_PRODUCT"
-        )
-    elif op_type in [OperationType.REMOVE_ITEM, OperationType.CHANGE_QUANTITY, OperationType.REPLACE_ITEM] and not target_selected_id:
-        actual_result = ResolutionResult(
-            outcome=OutcomeType.NEEDS_CLARIFICATION,
-            reason_code="MISSING_TARGET"
-        )
-    elif op_type == OperationType.CHANGE_QUANTITY and quantity is None:
-        actual_result = ResolutionResult(
-            outcome=OutcomeType.NEEDS_CLARIFICATION,
-            reason_code="MISSING_QUANTITY"
-        )
-    elif op_type == OperationType.REPLACE_ITEM and not product_id:
-        actual_result = ResolutionResult(
-            outcome=OutcomeType.NEEDS_CLARIFICATION,
-            reason_code="MISSING_REPLACEMENT"
-        )
-    elif op_type == OperationType.UNKNOWN:
-        actual_result = ResolutionResult(
-            outcome=OutcomeType.NEEDS_CLARIFICATION,
-            reason_code="INTENT_NOT_RECOGNIZED"
-        )
-    else:
+    if op_type in [OperationType.REMOVE_ITEM, OperationType.CHANGE_QUANTITY, OperationType.REPLACE_ITEM]:
+        if target_result is None or target_result.status != TargetStatus.RESOLVED:
+            actual_result = ResolutionResult(
+                outcome=OutcomeType.NEEDS_CLARIFICATION,
+                reason_code=(target_result.reason_code if target_result else "MISSING_TARGET")
+            )
+        elif op_type == OperationType.CHANGE_QUANTITY and quantity is None:
+            actual_result = ResolutionResult(
+                outcome=OutcomeType.NEEDS_CLARIFICATION,
+                reason_code="MISSING_QUANTITY"
+            )
+        elif op_type == OperationType.REPLACE_ITEM and not product_id:
+            actual_result = ResolutionResult(
+                outcome=OutcomeType.NEEDS_CLARIFICATION,
+                reason_code="AMBIGUOUS_PRODUCT"
+            )
+        else:
+            operation = {
+                "type": op_type.value,
+                "product_id": product_id,
+                "product_term": product_term,
+                "target_item_id": target_selected_id,
+                "quantity_value": quantity,
+                "quantity_unit": unit,
+                "replacement_product_id": product_id if op_type == OperationType.REPLACE_ITEM else None,
+            }
+            actual_result = ResolutionResult(
+                outcome=OutcomeType.OPERATION,
+                operation=operation,
+                evidence=["interpretation"]
+            )
+    elif op_type == OperationType.ADD_ITEM:
+        if not product_id:
+            actual_result = ResolutionResult(
+                outcome=OutcomeType.NEEDS_CLARIFICATION,
+                reason_code="AMBIGUOUS_PRODUCT"
+            )
+        else:
+            operation = {
+                "type": op_type.value,
+                "product_id": product_id,
+                "product_term": product_term,
+                "target_item_id": None,
+                "quantity_value": quantity,
+                "quantity_unit": unit,
+                "replacement_product_id": None,
+            }
+            actual_result = ResolutionResult(
+                outcome=OutcomeType.OPERATION,
+                operation=operation,
+                evidence=["interpretation"]
+            )
+    elif op_type in [OperationType.CONFIRM_ORDER, OperationType.CANCEL_ORDER]:
         operation = {
             "type": op_type.value,
-            "product_id": product_id,
-            "product_term": product_term,
-            "target_item_id": target_selected_id,
-            "quantity_value": quantity,
-            "quantity_unit": unit,
-            "replacement_product_id": product_id if op_type == OperationType.REPLACE_ITEM else None,
+            "product_id": None,
+            "product_term": None,
+            "target_item_id": None,
+            "quantity_value": None,
+            "quantity_unit": None,
+            "replacement_product_id": None,
         }
         actual_result = ResolutionResult(
             outcome=OutcomeType.OPERATION,
             operation=operation,
             evidence=["interpretation"]
         )
+    else:
+        actual_result = ResolutionResult(
+            outcome=OutcomeType.NEEDS_CLARIFICATION,
+            reason_code="INTENT_NOT_RECOGNIZED"
+        )
 
-    # 7. Avaliação canônica
+    # 6. Avaliação canônica
     comparison = evaluate_resolution(expected, actual_result)
 
-    # 8. Monta o trace
+    # 7. Monta o trace
     trace = {
         "case_id": case["id"],
         "message": message,
         "state_before": state_before.to_dict(),
         "expected": expected,
         "intent_signal": intent,
-        "intent_source": "CLASSIFIER" if intent and intent in intent_map else "DETERMINISTIC_RULE",
         "entity_signals": {
             "product_term": product_term,
             "brand": brand,
@@ -234,13 +237,11 @@ def diagnose_case(case: Dict[str, Any]) -> Dict[str, Any]:
         },
         "reference_signal": {
             "type": ref_signal.type.value if ref_signal else "UNKNOWN",
-            "constraints": ref_signal.constraints if ref_signal else {},
             "product_term": ref_signal.product_term if ref_signal else None,
-            "requires_clarification": ref_signal.requires_clarification if ref_signal else False,
         },
         "catalog_candidates": catalog_candidates,
         "product_resolution_status": product_resolution_status,
-        "target_candidates": target_candidates,
+        "target_candidates": [item.id for item in state_before.items],
         "target_selected": target_selected_id,
         "target_evidence": target_evidence,
         "target_source": target_source,
@@ -267,19 +268,16 @@ def main():
         trace = diagnose_case(case)
         traces.append(trace)
 
-    # Salva o relatório completo
     output_path = Path("reports/dev_diagnostic.json")
     with open(output_path, "w") as f:
         json.dump(traces, f, indent=2, ensure_ascii=False, default=str)
     print(f"Relatório salvo em {output_path}")
 
-    # Exibe resumo no terminal
     total = len(traces)
     exact_matches = sum(1 for t in traces if t["exact_match"])
     print(f"\nTotal: {total}")
     print(f"Exact Matches: {exact_matches} ({exact_matches/total*100:.1f}%)")
 
-    # Distribuição de target_source
     print("\nTarget Source Distribution:")
     target_sources = defaultdict(int)
     for t in traces:
@@ -287,21 +285,15 @@ def main():
     for source, count in sorted(target_sources.items()):
         print(f"  {source}: {count}")
 
-    # Casos com LAST_ITEM_FALLBACK
-    fallback_cases = [t for t in traces if t["target_source"] == "LAST_ITEM_FALLBACK"]
-    if fallback_cases:
-        print(f"\nLAST_ITEM_FALLBACK occurrences ({len(fallback_cases)}):")
-        for t in fallback_cases:
-            print(f"  {t['case_id']}: {t['message']} -> target: {t['target_selected']}")
-
-    # Casos de NEEDS_CLARIFICATION
     clarification_cases = [t for t in traces if t["expected"]["outcome"] == "NEEDS_CLARIFICATION"]
     if clarification_cases:
         print(f"\nNEEDS_CLARIFICATION cases ({len(clarification_cases)}):")
         for t in clarification_cases:
             actual_outcome = t["actual_result"]["outcome"]
             match = t["exact_match"]
-            print(f"  {t['case_id']}: expected CLARIFICATION, got {actual_outcome} {'✅' if match else '❌'}")
+            reason_exp = t["expected"].get("reason_code", "-")
+            reason_act = t["actual_result"].get("reason_code", "-")
+            print(f"  {t['case_id']}: expected {reason_exp}, got {reason_act} {'✅' if match else '❌'}")
 
 if __name__ == "__main__":
     main()
