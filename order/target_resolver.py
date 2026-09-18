@@ -1,21 +1,25 @@
 from dataclasses import dataclass, field
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Any
 from enum import Enum
+import re
 
-from order.state import OrderState, OrderItem
+from order.state import OrderState
+
 
 class TargetStatus(Enum):
     RESOLVED = "RESOLVED"
     AMBIGUOUS = "AMBIGUOUS"
     UNKNOWN = "UNKNOWN"
 
+
 class TargetSource(Enum):
     EXPLICIT_ITEM_REFERENCE = "EXPLICIT_ITEM_REFERENCE"
     PENDING_REFERENCE = "PENDING_REFERENCE"
     CONTEXTUAL_REFERENCE = "CONTEXTUAL_REFERENCE"
     UNIQUE_ORDER_ITEM_MATCH = "UNIQUE_ORDER_ITEM_MATCH"
-    ACTIVE_CONTEXT = "ACTIVE_CONTEXT"
+    MESSAGE_TOKEN_OVERLAP = "MESSAGE_TOKEN_OVERLAP"
     UNKNOWN = "UNKNOWN"
+
 
 @dataclass
 class TargetResult:
@@ -23,9 +27,22 @@ class TargetResult:
     target_item_id: Optional[str] = None
     evidence: List[str] = field(default_factory=list)
     source: TargetSource = TargetSource.UNKNOWN
-    reason_code: Optional[str] = None  # usado quando status != RESOLVED
+    reason_code: Optional[str] = None
+
 
 class TargetResolver:
+    """
+    Resolve o target de uma operação que atua sobre item existente.
+    Prioriza: referência explícita > pending > contexto > token overlap > único match.
+    """
+
+    STOPWORDS = {
+        "para", "pelo", "pela", "com", "sem", "mais", "esse", "esta",
+        "isso", "aqui", "depois", "antes", "então", "também",
+        "quero", "manda", "coloca", "tira", "remove", "muda", "troca",
+        "substitui", "bota", "adiciona", "cancela", "fecha",
+    }
+
     def resolve(
         self,
         message: str,
@@ -33,10 +50,6 @@ class TargetResolver:
         reference_product_term: Optional[str] = None,
         ref_signal: Any = None,
     ) -> TargetResult:
-        """
-        Resolve o target de uma operação que atua sobre item existente.
-        Prioriza: referência explícita > pending > contexto > único match.
-        """
         msg_lower = message.lower()
 
         # 1. Referência explícita ao produto
@@ -99,7 +112,7 @@ class TargetResolver:
                 reason_code="AMBIGUOUS_TARGET",
             )
 
-        # 4. Único item compatível (sem menção explícita)
+        # 4. Único item compatível
         if len(state.items) == 1:
             return TargetResult(
                 status=TargetStatus.RESOLVED,
@@ -108,10 +121,47 @@ class TargetResolver:
                 source=TargetSource.UNIQUE_ORDER_ITEM_MATCH,
             )
 
-        # 5. Sem evidência suficiente
+        # 5. Match contra tokens da mensagem original (robustez a ruído do GLiNER)
+        if state.items:
+            msg_tokens = self._significant_tokens(msg_lower)
+            matches = []
+            for item in state.items:
+                item_tokens = self._significant_tokens(item.product_term.lower())
+                if msg_tokens & item_tokens:
+                    matches.append(item.id)
+            if len(matches) == 1:
+                return TargetResult(
+                    status=TargetStatus.RESOLVED,
+                    target_item_id=matches[0],
+                    evidence=[f"token_overlap: {msg_tokens & self._significant_tokens(next(i for i in state.items if i.id == matches[0]).product_term.lower())}"],
+                    source=TargetSource.MESSAGE_TOKEN_OVERLAP,
+                )
+            if len(matches) > 1:
+                return TargetResult(
+                    status=TargetStatus.AMBIGUOUS,
+                    evidence=[f"multiple_token_matches: {len(matches)}"],
+                    source=TargetSource.MESSAGE_TOKEN_OVERLAP,
+                    reason_code="AMBIGUOUS_TARGET",
+                )
+
+        # 6. Múltiplos itens sem referência suficiente → AMBIGUOUS
+        if len(state.items) > 1:
+            return TargetResult(
+                status=TargetStatus.AMBIGUOUS,
+                evidence=["multiple_items_no_reference"],
+                source=TargetSource.UNKNOWN,
+                reason_code="AMBIGUOUS_TARGET",
+            )
+
+        # 7. Sem itens no estado
         return TargetResult(
             status=TargetStatus.UNKNOWN,
-            evidence=["no sufficient evidence"],
+            evidence=["no_items_in_state"],
             source=TargetSource.UNKNOWN,
             reason_code="MISSING_TARGET",
         )
+
+    def _significant_tokens(self, text: str) -> set:
+        """Extrai tokens significativos (>= 4 chars, não stopwords)."""
+        tokens = set(re.findall(r'\b[a-záéíóúãõçâêôûî]{4,}\b', text))
+        return tokens - self.STOPWORDS

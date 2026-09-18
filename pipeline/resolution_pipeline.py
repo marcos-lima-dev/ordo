@@ -5,6 +5,11 @@ from order.state import OrderState
 from order.resolved_operation import OperationType
 from order.resolution_result import ResolutionResult, OutcomeType
 from order.resolution_composer import ResolutionComposer
+from order.operation_resolver import (
+    OperationResolver,
+    OperationResolutionStatus,
+    OperationSource,
+)
 from order.target_resolver import TargetResolver, TargetStatus
 from order.pending_resolver import PendingResolver, PendingStatus
 from order.catalog_retriever import CatalogRetriever
@@ -20,6 +25,7 @@ _pending_resolver = None
 _catalog_retriever = None
 _product_resolver = None
 _composer = None
+_operation_resolver = None
 
 
 def _get_adapter():
@@ -71,6 +77,13 @@ def _get_composer():
     return _composer
 
 
+def _get_operation_resolver():
+    global _operation_resolver
+    if _operation_resolver is None:
+        _operation_resolver = OperationResolver()
+    return _operation_resolver
+
+
 # =============================================
 # Helpers
 # =============================================
@@ -81,7 +94,6 @@ def _extract_replacement_term(message: str) -> Optional[str]:
     'troca X por Y', 'substitui X por Y', 'troca X pelo Y'.
     """
     msg_lower = message.lower()
-    # Padrões: "por", "pelo", "pela", "com"
     patterns = [
         r"(?:por|pelo|pela)\s+(.+)$",
     ]
@@ -89,7 +101,6 @@ def _extract_replacement_term(message: str) -> Optional[str]:
         match = re.search(pattern, msg_lower)
         if match:
             term = match.group(1).strip()
-            # Remove artigos iniciais
             term = re.sub(r"^(o|a|os|as)\s+", "", term)
             return term if term else None
     return None
@@ -98,19 +109,18 @@ def _extract_replacement_term(message: str) -> Optional[str]:
 def _extract_source_term(message: str, product_term: Optional[str]) -> Optional[str]:
     """
     Extrai o termo do produto de origem em mensagens do tipo 'troca X por Y'.
-    Se o product_term do GLiNER contiver 'por', corta antes.
     """
     msg_lower = message.lower()
-    # Se o GLiNER capturou a frase inteira, tenta cortar em "por"
     if product_term and " por " in product_term.lower():
         return product_term.lower().split(" por ")[0].strip()
 
-    # Procura o padrão "troca X por"
-    match = re.search(r"(?:troca|substitui|substitua)\s+(?:o|a|os|as)?\s*(.+?)\s+(?:por|pelo|pela)", msg_lower)
+    match = re.search(
+        r"(?:troca|substitui|substitua)\s+(?:o|a|os|as)?\s*(.+?)\s+(?:por|pelo|pela)",
+        msg_lower,
+    )
     if match:
         return match.group(1).strip()
 
-    # Fallback: usa o product_term original
     return product_term
 
 
@@ -121,7 +131,6 @@ def _extract_source_term(message: str, product_term: Optional[str]) -> Optional[
 def resolve_operation(message: str, state: OrderState) -> ResolutionResult:
     """
     Pipeline upstream unificado: gera ResolutionResult a partir de mensagem + OrderState.
-    Usado tanto pelo benchmark quanto pelo diagnóstico para garantir concordância.
     """
     adapter = _get_adapter()
     resolver = _get_resolver()
@@ -130,20 +139,32 @@ def resolve_operation(message: str, state: OrderState) -> ResolutionResult:
     catalog_retriever = _get_catalog_retriever()
     product_resolver = _get_product_resolver()
     composer = _get_composer()
+    operation_resolver = _get_operation_resolver()
 
     # 1. Reference Resolution
     ref_signal = resolver.resolve(message, state)
 
     # 2. NLP
     interpretation = adapter.predict(message)
-    intent = interpretation.get("intent")
+    message_intent_str = interpretation.get("intent")
     product_term = interpretation.get("product_term")
     brand = interpretation.get("explicit_brand")
     presentation = interpretation.get("explicit_presentation")
     quantity = interpretation.get("quantity", {}).get("value")
     unit = interpretation.get("quantity", {}).get("unit")
 
-    # 3. PendingResolver (prioritário)
+    # 3. Normaliza message_intent para OperationType
+    intent_map = {
+        "ADD_ITEM": OperationType.ADD_ITEM,
+        "REMOVE_ITEM": OperationType.REMOVE_ITEM,
+        "CHANGE_QUANTITY": OperationType.CHANGE_QUANTITY,
+        "REPLACE_ITEM": OperationType.REPLACE_ITEM,
+        "CONFIRM_ORDER": OperationType.CONFIRM_ORDER,
+        "CANCEL_ORDER": OperationType.CANCEL_ORDER,
+    }
+    message_intent = intent_map.get(message_intent_str, OperationType.UNKNOWN)
+
+    # 4. PendingResolver (prioritário)
     pending_result = pending_resolver.resolve(
         message=message,
         state=state,
@@ -166,30 +187,34 @@ def resolve_operation(message: str, state: OrderState) -> ResolutionResult:
             evidence=pending_result.evidence,
         )
 
-    # 4. Intent
-    intent_map = {
-        "ADD_ITEM": OperationType.ADD_ITEM,
-        "REMOVE_ITEM": OperationType.REMOVE_ITEM,
-        "CHANGE_QUANTITY": OperationType.CHANGE_QUANTITY,
-        "REPLACE_ITEM": OperationType.REPLACE_ITEM,
-        "CONFIRM_ORDER": OperationType.CONFIRM_ORDER,
-        "CANCEL_ORDER": OperationType.CANCEL_ORDER,
-    }
-    op_type = intent_map.get(intent)
-    if op_type is None:
+    # 5. OperationResolver (NOVO)
+    op_resolution = operation_resolver.resolve(
+        message=message,
+        classifier_intent=message_intent,
+    )
+
+    if op_resolution.status == OperationResolutionStatus.AMBIGUOUS:
+        return ResolutionResult(
+            outcome=OutcomeType.NEEDS_CLARIFICATION,
+            reason_code="AMBIGUOUS_OPERATION",
+        )
+
+    if op_resolution.resolved_operation_type is None:
         return ResolutionResult(
             outcome=OutcomeType.NEEDS_CLARIFICATION,
             reason_code="INTENT_NOT_RECOGNIZED",
         )
 
-    # 5. Extração de source e replacement (para REPLACE_ITEM)
+    op_type = op_resolution.resolved_operation_type
+
+    # 6. Extração de source e replacement (para REPLACE_ITEM)
     source_term = product_term
     replacement_term = None
     if op_type == OperationType.REPLACE_ITEM:
         source_term = _extract_source_term(message, product_term)
         replacement_term = _extract_replacement_term(message)
 
-    # 6. Target Resolution (source)
+    # 7. Target Resolution (source)
     target_status = None
     target_reason = None
     target_id = None
@@ -208,7 +233,7 @@ def resolve_operation(message: str, state: OrderState) -> ResolutionResult:
         target_reason = target_result.reason_code
         target_id = target_result.target_item_id
 
-    # 7. Product Resolution
+    # 8. Product Resolution
     product_status = None
     product_id = None
 
@@ -223,7 +248,6 @@ def resolve_operation(message: str, state: OrderState) -> ResolutionResult:
             product_id = catalog_candidates[0]
 
     elif op_type == OperationType.REPLACE_ITEM:
-        # Resolve o produto de substituição separadamente
         replacement_query = replacement_term or ""
         catalog_candidates = catalog_retriever.retrieve_with_constraints(
             replacement_query, brand=None, presentation=None
@@ -234,13 +258,13 @@ def resolve_operation(message: str, state: OrderState) -> ResolutionResult:
         if product_status == "EXACT_MATCH" and len(catalog_candidates) == 1:
             product_id = catalog_candidates[0]
 
-    # 8. Pending bloqueante
+    # 9. Pending bloqueante
     pending_blocking = (
         state.pending_resolution is not None
         and pending_result.status == PendingStatus.NOT_APPLICABLE
     )
 
-    # 9. Composer
+    # 10. Composer
     clarification = composer.compose(
         op_type=op_type,
         target_status=target_status,
@@ -252,7 +276,7 @@ def resolve_operation(message: str, state: OrderState) -> ResolutionResult:
     if clarification is not None:
         return clarification
 
-    # 10. Operação válida
+    # 11. Operação válida
     operation = {
         "type": op_type.value,
         "product_id": product_id if op_type == OperationType.ADD_ITEM else None,
