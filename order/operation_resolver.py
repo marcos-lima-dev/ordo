@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Optional, List
 from enum import Enum
+import re
 
 from order.resolved_operation import OperationType
 
@@ -30,20 +31,10 @@ class OperationResolution:
 
 
 class OperationResolver:
-    """
-    Resolve o tipo de operação semanticamente sustentado pela mensagem + contexto.
-
-    Não resolve target nem produto.
-    Não altera OrderState.
-    """
-
-    # Sinais linguísticos determinísticos para operações
     DETERMINISTIC_SIGNALS = [
         (r"\btira\b", OperationType.REMOVE_ITEM),
         (r"\bremove\b", OperationType.REMOVE_ITEM),
         (r"\bretira\b", OperationType.REMOVE_ITEM),
-        (r"\bmuda\s+para\b", OperationType.CHANGE_QUANTITY),
-        (r"\baltera\s+para\b", OperationType.CHANGE_QUANTITY),
         (r"\btroca\b", OperationType.REPLACE_ITEM),
         (r"\bsubstitui\b", OperationType.REPLACE_ITEM),
         (r"\bcancela\b", OperationType.CANCEL_ORDER),
@@ -54,19 +45,37 @@ class OperationResolver:
         (r"\bquero\b", OperationType.ADD_ITEM),
     ]
 
+    CHANGE_VERBS = [
+        r"\bmuda\b",
+        r"\bmudar\b",
+        r"\baltera\b",
+        r"\balterar\b",
+        r"\bajusta\b",
+        r"\bajustar\b",
+    ]
+
+    NUMBER_WORDS = [
+        "um", "uma", "dois", "duas", "três", "tres",
+        "quatro", "cinco", "seis", "sete", "oito", "nove", "dez",
+    ]
+
     def resolve(self, message: str, classifier_intent: OperationType) -> OperationResolution:
         msg_lower = message.lower()
-
-        # 1. Detecta sinais determinísticos
         deterministic_signals = []
+
+        # Regra composta 9A: change verb + quantity evidence
+        if self._has_change_verb(msg_lower) and self._has_quantity_evidence(msg_lower):
+            deterministic_signals.append(OperationType.CHANGE_QUANTITY)
+
+        # Sinais simples
         for pattern, op_type in self.DETERMINISTIC_SIGNALS:
-            import re
             if re.search(pattern, msg_lower):
                 deterministic_signals.append(op_type)
 
-        deterministic_signals = list(dict.fromkeys(deterministic_signals))  # unique preservando ordem
+        # Remove duplicatas preservando ordem
+        deterministic_signals = list(dict.fromkeys(deterministic_signals))
 
-        # 2. Sem sinais determinísticos: usa o classificador
+        # Sem sinais determinísticos → classificador decide
         if not deterministic_signals:
             return OperationResolution(
                 message_intent=classifier_intent,
@@ -76,7 +85,7 @@ class OperationResolver:
                 evidence=["no_deterministic_signal"],
             )
 
-        # 3. Se o sinal determinístico é único e compatível com o classificador
+        # Sinal único
         if len(deterministic_signals) == 1:
             det = deterministic_signals[0]
             if det == classifier_intent:
@@ -85,22 +94,42 @@ class OperationResolver:
                     resolved_operation_type=det,
                     status=OperationResolutionStatus.RESOLVED,
                     source=OperationSource.CLASSIFIER_PLUS_CONTEXT,
-                    evidence=[f"classifier={classifier_intent.value}", f"deterministic={det.value}"],
+                    evidence=[
+                        f"classifier={classifier_intent.value}",
+                        f"deterministic={det.value}",
+                    ],
                 )
-            # Sinal determinístico é mais específico: prevalece
             return OperationResolution(
                 message_intent=classifier_intent,
                 resolved_operation_type=det,
                 status=OperationResolutionStatus.RESOLVED,
                 source=OperationSource.DETERMINISTIC_SIGNAL,
-                evidence=[f"classifier={classifier_intent.value}", f"deterministic_override={det.value}"],
+                evidence=[
+                    f"classifier={classifier_intent.value}",
+                    f"deterministic_override={det.value}",
+                ],
             )
 
-        # 4. Múltiplos sinais determinísticos conflitantes
+        # Múltiplos sinais conflitantes
         return OperationResolution(
             message_intent=classifier_intent,
             resolved_operation_type=None,
             status=OperationResolutionStatus.AMBIGUOUS,
             source=OperationSource.DETERMINISTIC_SIGNAL,
-            evidence=[f"conflicting_signals={[s.value for s in deterministic_signals]}"],
+            evidence=[
+                f"conflicting_signals={[s.value for s in deterministic_signals]}"
+            ],
         )
+
+    def _has_change_verb(self, msg_lower: str) -> bool:
+        return any(re.search(p, msg_lower) for p in self.CHANGE_VERBS)
+
+    def _has_quantity_evidence(self, msg_lower: str) -> bool:
+        # dígito (com ou sem decimal) — sem \b para casar com "5kg"
+        if re.search(r"\d+(?:[.,]\d+)?", msg_lower):
+            return True
+        # palavra numérica
+        for w in self.NUMBER_WORDS:
+            if re.search(r"\b" + w + r"\b", msg_lower):
+                return True
+        return False
