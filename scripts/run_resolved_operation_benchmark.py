@@ -71,10 +71,10 @@ def compute_metrics(results):
 
 
 def main():
-    dev_cases = load_benchmark("datasets/resolved_operation_dev.jsonl")
-    holdout_cases = load_benchmark("datasets/resolved_operation_holdout.jsonl")
-    print(f"DEV: {len(dev_cases)} casos")
-    print(f"HOLDOUT: {len(holdout_cases)} casos")
+    dev_cases = load_benchmark("datasets/resolved_operation_dev_v2.jsonl")
+    holdout_cases = load_benchmark("datasets/resolved_operation_holdout1_v2.jsonl")
+    print(f"DEV (V2): {len(dev_cases)} casos")
+    print(f"HOLDOUT-1 (V2): {len(holdout_cases)} casos")
 
     dev_results = []
     for case in dev_cases:
@@ -106,20 +106,20 @@ def main():
     holdout_metrics = compute_metrics(holdout_results)
 
     print("\n" + "=" * 60)
-    print("RESOLVED OPERATION BENCHMARK")
+    print("RESOLVED OPERATION BENCHMARK — V2")
     print("=" * 60)
-    print("\n--- DEV ---")
+    print("\n--- DEV V2 ---")
     print(f"Total: {dev_metrics['total']}")
     print(f"Exact Matches: {dev_metrics['exact_matches']}/{dev_metrics['total']} ({dev_metrics['accuracy']*100:.1f}%)")
     for op_type, data in dev_metrics["by_type"].items():
         print(f"  {op_type}: {data['correct']}/{data['total']} ({data['accuracy']*100:.1f}%)")
-    print("\n--- HOLDOUT ---")
+    print("\n--- HOLDOUT-1 V2 ---")
     print(f"Total: {holdout_metrics['total']}")
     print(f"Exact Matches: {holdout_metrics['exact_matches']}/{holdout_metrics['total']} ({holdout_metrics['accuracy']*100:.1f}%)")
     for op_type, data in holdout_metrics["by_type"].items():
         print(f"  {op_type}: {data['correct']}/{data['total']} ({data['accuracy']*100:.1f}%)")
 
-    output_path = Path("reports/resolved_operation_benchmark.json")
+    output_path = Path("reports/resolved_operation_benchmark_v2.json")
     with open(output_path, "w") as f:
         json.dump({"dev": {"results": dev_results, "metrics": dev_metrics}, "holdout": {"results": holdout_results, "metrics": holdout_metrics}}, f, indent=2, ensure_ascii=False, default=str)
     print(f"\nResultados salvos em {output_path}")

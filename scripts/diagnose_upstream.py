@@ -12,7 +12,7 @@ from pipeline.resolution_pipeline import resolve_operation
 
 
 def load_dev_set():
-    path = Path("datasets/resolved_operation_dev.jsonl")
+    path = Path("datasets/resolved_operation_dev_v2.jsonl")
     with open(path) as f:
         return [json.loads(line) for line in f if line.strip()]
 
@@ -46,7 +46,7 @@ def build_state(state_data: Dict[str, Any]) -> OrderState:
 
 def main():
     dev_cases = load_dev_set()
-    print(f"Diagnosticando {len(dev_cases)} casos do DEV...")
+    print(f"Diagnosticando {len(dev_cases)} casos do DEV (V2)...")
 
     traces = []
     for case in dev_cases:
