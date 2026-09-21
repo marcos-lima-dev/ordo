@@ -79,21 +79,27 @@ class ModularAdapter(CandidateAdapter):
         intent = self._classify_intent(message)
 
         # 3. Recupera candidatos do catálogo usando a mensagem COMPLETA
-        candidates = self.catalog_retriever.retrieve_with_constraints(
+        #    (proveniência legítima do retriever é preservada e propagada)
+        candidates, catalog_evidence = self.catalog_retriever.retrieve_with_provenance(
             message,
             brand=brand,
             presentation=presentation
         )
-        
+
         # 4. Se houver exatamente 1 candidato, usa o nome normalizado como product_term
         if len(candidates) == 1:
             product_id = candidates[0]
             product = self.catalog_retriever._get_product_by_id(product_id)
             if product:
                 product_raw = product["normalized_name"]
-        
-        # 5. Resolve status do produto
-        resolution_status = self.product_resolver.resolve(candidates, product_term=product_raw, brand=brand)
+
+        # 5. Resolve status do produto (com proveniência legítima)
+        resolution_status = self.product_resolver.resolve(
+            candidates,
+            product_term=product_raw,
+            brand=brand,
+            evidence=catalog_evidence,
+        )
 
         # 6. Extrai quantidade com regex (independente do GLiNER)
         qty_value, qty_unit = self._extract_quantity(message)

@@ -29,13 +29,18 @@ class ConversationProcessor:
 
         # 3. Se target for um item existente ou pendente, aplica restrições
         if target.type == TargetType.PENDING_ITEM and target.brand_constraint:
-            # Refina candidatos com a marca
-            candidates = self.catalog_retriever.retrieve_with_constraints(
+            # Refina candidatos com a marca (proveniência legítima propagada)
+            candidates, catalog_evidence = self.catalog_retriever.retrieve_with_provenance(
                 product_term or "",
                 brand=target.brand_constraint,
                 presentation=presentation
             )
-            resolution_status = self.product_resolver.resolve(candidates, product_term=product_term, brand=target.brand_constraint)
+            resolution_status = self.product_resolver.resolve(
+                candidates,
+                product_term=product_term,
+                brand=target.brand_constraint,
+                evidence=catalog_evidence,
+            )
 
         elif target.type == TargetType.EXISTING_ITEM and target.item_id:
             # Para alteração de quantidade, usamos o item_id

@@ -238,22 +238,26 @@ def resolve_operation(message: str, state: OrderState) -> ResolutionResult:
     product_id = None
 
     if op_type == OperationType.ADD_ITEM:
-        catalog_candidates = catalog_retriever.retrieve_with_constraints(
+        catalog_candidates, catalog_evidence = catalog_retriever.retrieve_with_provenance(
             message, brand=brand, presentation=presentation
         )
         product_status = product_resolver.resolve(
-            catalog_candidates, product_term=product_term, brand=brand
+            catalog_candidates,
+            product_term=product_term,
+            brand=brand,
+            evidence=catalog_evidence,
         )
         if product_status == "EXACT_MATCH" and len(catalog_candidates) == 1:
             product_id = catalog_candidates[0]
 
     elif op_type == OperationType.REPLACE_ITEM:
         replacement_query = replacement_term or ""
-        catalog_candidates = catalog_retriever.retrieve_with_constraints(
-            replacement_query, brand=None, presentation=None
-        )
+        catalog_candidates, catalog_evidence = catalog_retriever.retrieve_with_provenance(replacement_query)
         product_status = product_resolver.resolve(
-            catalog_candidates, product_term=replacement_query, brand=None
+            catalog_candidates,
+            product_term=replacement_query,
+            brand=None,
+            evidence=catalog_evidence,
         )
         if product_status == "EXACT_MATCH" and len(catalog_candidates) == 1:
             product_id = catalog_candidates[0]
