@@ -119,24 +119,32 @@ def test_source_resolved_explicit(target_resolver, state_provolone_e_manteiga):
 
 
 def test_source_unknown_multiple_items(target_resolver, state_provolone_e_manteiga):
-    """Last item sozinho NÃO autoriza source."""
+    """
+    Múltiplos itens + sem referência → AMBIGUOUS (não UNKNOWN).
+    A política atual do TargetResolver retorna AMBIGUOUS quando há
+    múltiplos itens compatíveis sem evidência para escolher.
+    """
     result = target_resolver.resolve(
         "troca uma por gorgonzola",
         state_provolone_e_manteiga,
         reference_product_term=None,
     )
-    assert result.status == TargetStatus.UNKNOWN
-    assert result.reason_code == "MISSING_TARGET"
+    assert result.status == TargetStatus.AMBIGUOUS
+    assert result.reason_code == "AMBIGUOUS_TARGET"
 
 
 def test_last_item_does_not_authorize_source(target_resolver, state_provolone_e_manteiga):
-    """Mesmo com dois itens, sem referência, source é UNKNOWN."""
+    """
+    Mesmo com dois itens e sem referência, o target é AMBIGUOUS
+    (last_item sozinho não autoriza).
+    """
     result = target_resolver.resolve(
         "muda para 4",
         state_provolone_e_manteiga,
         reference_product_term=None,
     )
-    assert result.status == TargetStatus.UNKNOWN
+    assert result.status == TargetStatus.AMBIGUOUS
+    assert result.reason_code == "AMBIGUOUS_TARGET"
 
 
 # --- ATOMICIDADE ---
