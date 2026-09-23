@@ -2,7 +2,6 @@ from typing import Optional, Tuple, List
 from order.resolved_operation import ResolvedOperation, OperationType
 from order.state import OrderState, OrderItem
 from order.order_status import OrderStatus, can_transition
-from order.pending import PendingResolution
 
 class OrderEngine:
     """
@@ -51,33 +50,19 @@ class OrderEngine:
     # ADD_ITEM
     # =============================================
     def _apply_add_item(self, state: OrderState, op: ResolvedOperation, events: List[str]) -> Tuple[OrderState, List[str]]:
-        # Cria o item
+        # Contrato de execução (Stage 1A/4): op.is_valid() já garantiu
+        # op.product_id is not None. Não há caminho parcial neste método.
         item = OrderItem(
             product_term=op.product_term or "unknown",
             product_id=op.product_id,
             quantity=op.quantity_value,
             unit=op.quantity_unit,
-            resolved=(op.product_id is not None),
-            needs_clarification=(op.product_id is None),
-            clarification_questions=[] if op.product_id else ["product_specification"]
+            resolved=True,
+            needs_clarification=False,
+            clarification_questions=[],
         )
         state.add_item(item)
-
-        # Se não houver product_id, cria uma pending_resolution
-        if op.product_id is None:
-            pending = PendingResolution(
-                product_term=op.product_term or "unknown",
-                quantity=op.quantity_value,
-                unit=op.quantity_unit,
-                missing_fields=["product_specification"],
-                reason="NOT_FOUND"
-            )
-            state.set_pending(pending)
-            state.status = OrderStatus.NEEDS_CLARIFICATION.value
-        else:
-            # Verifica se todos os itens estão resolvidos
-            self._update_status(state)
-
+        self._update_status(state)
         events.append("ITEM_ADDED")
         return state, events
 
