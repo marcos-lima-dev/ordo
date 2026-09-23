@@ -24,10 +24,28 @@ class ResolvedOperation:
     evidence: List[str] = field(default_factory=list)
 
     def is_valid(self) -> bool:
+        """
+        Contrato de execução (NORMATIVE TARGET CONTRACT — Track 9C Stage 1A).
+
+        ADD_ITEM:
+            product_id obrigatório.
+            product_term sozinho NÃO autoriza execução.
+        REMOVE_ITEM:
+            target_item_id obrigatório.
+        CHANGE_QUANTITY:
+            target_item_id e quantity_value obrigatórios.
+            quantity_unit=None é válido e significa KEEP_EXISTING_UNIT.
+        REPLACE_ITEM:
+            target_item_id e replacement_product_id obrigatórios.
+        CONFIRM_ORDER / CANCEL_ORDER:
+            sem campos obrigatórios além de type.
+        UNKNOWN:
+            sempre inválido (CanReachEngine = FALSE).
+        """
         if self.type == OperationType.UNKNOWN:
             return False
         if self.type == OperationType.ADD_ITEM:
-            return self.product_id is not None or self.product_term is not None
+            return self.product_id is not None
         if self.type == OperationType.REMOVE_ITEM:
             return self.target_item_id is not None
         if self.type == OperationType.CHANGE_QUANTITY:

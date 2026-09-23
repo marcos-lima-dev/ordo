@@ -54,7 +54,13 @@ def test_add_item_with_product_id():
     assert new_state.status == "READY_TO_CONFIRM"
 
 def test_add_item_without_product_id():
-    """ADD_ITEM: sem product_id → item pendente, status NEEDS_CLARIFICATION."""
+    """ADD_ITEM sem product_id → rejeitado pelo contrato normativo.
+
+    Regression guard do contrato Track 9C Stage 1A:
+    product_term sozinho NÃO autoriza execução. O Engine deve rejeitar
+    a operação sem produzir ITEM_ADDED, item, PendingResolution, nem
+    mutação de OrderState.
+    """
     engine = OrderEngine()
     state = OrderState()
     state.status = "DRAFT"
@@ -64,13 +70,17 @@ def test_add_item_without_product_id():
         quantity_value=5.0,
         quantity_unit="KG"
     )
+
+    # Contrato de execução rejeita a operação.
+    assert op.is_valid() is False
+
+    # Engine rejeita sem produzir efeito operacional.
     new_state, events = engine.apply(state, op)
-    assert "ITEM_ADDED" in events
-    assert len(new_state.items) == 1
-    assert new_state.items[0].resolved is False
-    assert new_state.items[0].needs_clarification is True
-    assert new_state.pending_resolution is not None
-    assert new_state.status == "NEEDS_CLARIFICATION"
+    assert "Operação inválida: campos obrigatórios faltando" in events
+    assert "ITEM_ADDED" not in events
+    assert len(new_state.items) == 0
+    assert new_state.pending_resolution is None
+    assert new_state.status == "DRAFT"
 
 def test_remove_item_existing():
     """REMOVE_ITEM: remove item existente."""
@@ -117,6 +127,31 @@ def test_change_quantity_existing():
     new_state, events = engine.apply(state, op)
     assert "ITEM_QUANTITY_CHANGED" in events
     assert new_state.items[0].quantity == 8.0
+    assert new_state.items[0].unit == "KG"
+
+def test_change_quantity_without_unit():
+    """CHANGE_QUANTITY com quantity_unit=None é válido (KEEP_EXISTING_UNIT).
+
+    Contrato normativo Track 9C Stage 1A: quando a unidade não é informada
+    na mensagem, quantity_unit=None é semanticamente 'manter unidade
+    existente do item'. O Engine preserva a unidade do estado.
+    """
+    engine = OrderEngine()
+    state = OrderState()
+    item = OrderItem(product_term="Manteiga s/sal", quantity=10.0, unit="KG", resolved=True)
+    state.add_item(item)
+    state.status = "READY_TO_CONFIRM"
+    op = ResolvedOperation(
+        type=OperationType.CHANGE_QUANTITY,
+        target_item_id=item.id,
+        quantity_value=3.0,
+        quantity_unit=None
+    )
+    assert op.is_valid() is True
+
+    new_state, events = engine.apply(state, op)
+    assert "ITEM_QUANTITY_CHANGED" in events
+    assert new_state.items[0].quantity == 3.0
     assert new_state.items[0].unit == "KG"
 
 def test_change_quantity_not_found():
@@ -200,20 +235,6 @@ def test_update_status_to_ready():
     )
     new_state, _ = engine.apply(state, op)
     assert new_state.status == "READY_TO_CONFIRM"
-
-def test_update_status_to_needs_clarification():
-    """Teste: após adicionar item sem product_id, status deve ser NEEDS_CLARIFICATION."""
-    engine = OrderEngine()
-    state = OrderState()
-    state.status = "DRAFT"
-    op = ResolvedOperation(
-        type=OperationType.ADD_ITEM,
-        product_term="provolone",
-        quantity_value=5.0,
-        quantity_unit="KG"
-    )
-    new_state, _ = engine.apply(state, op)
-    assert new_state.status == "NEEDS_CLARIFICATION"
 
 def test_draft_with_no_items():
     """Teste: estado vazio deve permanecer DRAFT."""
