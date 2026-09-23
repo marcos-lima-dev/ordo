@@ -25,33 +25,45 @@ class ResolvedOperation:
 
     def is_valid(self) -> bool:
         """
-        Contrato de execução (NORMATIVE TARGET CONTRACT — Track 9C Stage 1A).
+        Contrato de execução derivado de
+        order.operation_fields.EXECUTION_REQUIREMENTS.
 
-        ADD_ITEM:
-            product_id obrigatório.
-            product_term sozinho NÃO autoriza execução.
-        REMOVE_ITEM:
-            target_item_id obrigatório.
-        CHANGE_QUANTITY:
-            target_item_id e quantity_value obrigatórios.
-            quantity_unit=None é válido e significa KEEP_EXISTING_UNIT.
-        REPLACE_ITEM:
-            target_item_id e replacement_product_id obrigatórios.
-        CONFIRM_ORDER / CANCEL_ORDER:
-            sem campos obrigatórios além de type.
-        UNKNOWN:
-            sempre inválido (CanReachEngine = FALSE).
+        A validação NÃO é reimplementada manualmente aqui. Consulta a
+        declaração central para garantir única fonte de verdade.
+
+        Regras:
+            - UNKNOWN e demais tipos em NON_EXECUTABLE_OPERATION_TYPES
+              são sempre inválidos.
+            - Tipos ausentes de EXECUTION_REQUIREMENTS são inválidos
+              por padrão (default conservador).
+            - Um tipo é válido se TODOS os campos listados em
+              EXECUTION_REQUIREMENTS[type] estiverem preenchidos
+              (não-None).
+
+        Semântica especial (CHANGE_QUANTITY):
+            quantity_unit NÃO aparece em EXECUTION_REQUIREMENTS.
+            Quando None, significa KEEP_EXISTING_UNIT — o Order Engine
+            preserva a unidade do item existente em OrderState.
+
+        Lazy import: operation_fields importa OperationType deste
+        módulo no topo. O import é feito dentro do método para evitar
+        ciclo de carregamento.
         """
-        if self.type == OperationType.UNKNOWN:
+        from order.operation_fields import (
+            EXECUTION_REQUIREMENTS,
+            NON_EXECUTABLE_OPERATION_TYPES,
+        )
+
+        if self.type in NON_EXECUTABLE_OPERATION_TYPES:
             return False
-        if self.type == OperationType.ADD_ITEM:
-            return self.product_id is not None
-        if self.type == OperationType.REMOVE_ITEM:
-            return self.target_item_id is not None
-        if self.type == OperationType.CHANGE_QUANTITY:
-            return self.target_item_id is not None and self.quantity_value is not None
-        if self.type == OperationType.REPLACE_ITEM:
-            return self.target_item_id is not None and self.replacement_product_id is not None
-        if self.type in [OperationType.CONFIRM_ORDER, OperationType.CANCEL_ORDER]:
-            return True
-        return False
+
+        required = EXECUTION_REQUIREMENTS.get(self.type)
+        if required is None:
+            # Tipo sem entrada explícita na tabela de execução.
+            return False
+
+        for field_name in required:
+            if getattr(self, field_name, None) is None:
+                return False
+
+        return True
