@@ -1,9 +1,9 @@
 """
-ORDO — Query Intent Provider contract (Track 10, Stage 4F).
+ORDO — Query Intent Provider contract (Track 10, Stage 4F / 4F.1).
 
 Defines the minimal substitutable interface for QUERY recognition.
 
-Scope (Stage 4F):
+Scope (Stage 4F / 4F.1):
     - QUERY recognition only.
     - COMMAND path is untouched.
     - REPLACE_ITEM remains in OperationResolver.
@@ -29,10 +29,26 @@ Principle (T10-P10):
         - operational failure;
         - generic fallback.
 
-    A provider that cannot decide between PRICE and AVAILABILITY
-    must not convert that uncertainty into NOT_QUERY. The policy
-    for uncertainty is UNSPECIFIED / DEFERRED — no additional
-    state is introduced in this contract.
+Principle (T10-P11):
+    ABSENCE OF QUERY EVIDENCE ≠ NOT_QUERY.
+
+    Lack of sufficient QUERY evidence does not authorize a
+    NOT_QUERY classification. When the provider evaluated the
+    message but cannot safely produce QUERY_PRICE,
+    QUERY_AVAILABILITY, or NOT_QUERY, the correct semantic
+    outcome is UNRESOLVED.
+
+Principle (T10-P12):
+    UNRESOLVED ≠ PROVIDER FAILURE.
+
+    UNRESOLVED is a valid semantic outcome. Operational failure
+    remains an explicit exception, never a signal.
+
+Principle (T10-P13):
+    UNRESOLVED ≠ NOT_QUERY.
+
+    NOT_QUERY is a positive classification of non-query.
+    UNRESOLVED is the absence of a safe classification.
 
 Contract:
     - predict(message) -> QueryIntentSignal
@@ -47,13 +63,14 @@ States:
     QUERY_AVAILABILITY  — evaluated as an availability query
     NOT_QUERY           — evaluated and positively classified as
                           not belonging to the QUERY domain
+    UNRESOLVED          — evaluated, but insufficient evidence to
+                          safely produce QUERY_PRICE,
+                          QUERY_AVAILABILITY, or NOT_QUERY
 
 Rejected states (for the minimum contract):
     UNKNOWN   — not necessary for the minimum demonstrated contract.
                 Operational failure is an explicit exception, not a
-                state. If a future gate demonstrates a real need for
-                an additional semantic state, this contract may be
-                revised.
+                state.
     AMBIGUOUS — no demonstrated real case; subtype disambiguation,
                 when needed, belongs downstream.
 
@@ -79,10 +96,18 @@ class QueryIntentSignal(Enum):
         that the provider evaluated the message and concluded it is
         not a recognized query. It is not a fallback for uncertainty,
         operational failure, or subtype indecision.
+
+    UNRESOLVED semantics (T10-P12 / T10-P13):
+        UNRESOLVED is a valid semantic outcome. It asserts that the
+        provider evaluated the message but lacks sufficient evidence
+        to safely produce QUERY_PRICE, QUERY_AVAILABILITY, or
+        NOT_QUERY. It is not a provider failure and it is not
+        equivalent to NOT_QUERY.
     """
     QUERY_PRICE = "QUERY_PRICE"
     QUERY_AVAILABILITY = "QUERY_AVAILABILITY"
     NOT_QUERY = "NOT_QUERY"
+    UNRESOLVED = "UNRESOLVED"
 
 
 class QueryIntentProvider(ABC):
@@ -106,6 +131,8 @@ class QueryIntentProvider(ABC):
             - evaluated as availability query → QueryIntentSignal.QUERY_AVAILABILITY
             - evaluated, positively classified as not a query
                                               → QueryIntentSignal.NOT_QUERY
+            - evaluated, insufficient evidence to safely classify
+                                              → QueryIntentSignal.UNRESOLVED
             - operational failure             → raise (never return a signal)
 
         Note (T10-P10):
@@ -113,5 +140,12 @@ class QueryIntentProvider(ABC):
             not be used as a fallback for uncertainty, subtype
             indecision, or operational failure. A provider that
             cannot evaluate must raise.
+
+        Note (T10-P12 / T10-P13):
+            UNRESOLVED is a valid semantic outcome, not a provider
+            failure, and not equivalent to NOT_QUERY. A provider
+            that evaluated the message but lacks sufficient evidence
+            to safely classify it must return UNRESOLVED rather than
+            NOT_QUERY or an exception.
         """
         raise NotImplementedError

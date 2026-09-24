@@ -24,11 +24,12 @@ def module_source():
 # QIP-01 — Signal enum members
 # =============================================
 
-def test_qip01_signal_members_are_exactly_three():
+def test_qip01_signal_members_are_exactly_four():
     assert {s.name for s in QueryIntentSignal} == {
         "QUERY_PRICE",
         "QUERY_AVAILABILITY",
         "NOT_QUERY",
+        "UNRESOLVED",
     }
 
 
@@ -38,6 +39,10 @@ def test_qip01b_signal_does_not_include_unknown():
 
 def test_qip01c_signal_does_not_include_ambiguous():
     assert "AMBIGUOUS" not in {s.name for s in QueryIntentSignal}
+
+
+def test_qip01d_signal_includes_unresolved():
+    assert "UNRESOLVED" in {s.name for s in QueryIntentSignal}
 
 
 # =============================================
@@ -277,3 +282,99 @@ def test_qip08c_enum_docstring_states_not_query_is_positive(module_source):
     assert "positively classified" in module_source.lower() or (
         "positive negative" in module_source.lower()
     )
+
+
+# =============================================
+# QIP-09 — UNRESOLVED semantics (T10-P12 / T10-P13)
+# =============================================
+
+def test_qip09a_unresolved_exists():
+    assert QueryIntentSignal.UNRESOLVED.name == "UNRESOLVED"
+    assert QueryIntentSignal.UNRESOLVED.value == "UNRESOLVED"
+
+
+def test_qip09b_unresolved_is_distinct_from_not_query():
+    assert QueryIntentSignal.UNRESOLVED is not QueryIntentSignal.NOT_QUERY
+
+
+def test_qip09c_unresolved_is_distinct_from_query_price():
+    assert QueryIntentSignal.UNRESOLVED is not QueryIntentSignal.QUERY_PRICE
+
+
+def test_qip09d_unresolved_is_distinct_from_query_availability():
+    assert QueryIntentSignal.UNRESOLVED is not QueryIntentSignal.QUERY_AVAILABILITY
+
+
+def test_qip09e_provider_can_return_unresolved_without_raising():
+    """UNRESOLVED is a semantic outcome, not an operational failure."""
+    class UnresolvedProvider(QueryIntentProvider):
+        def predict(self, message: str) -> QueryIntentSignal:
+            return QueryIntentSignal.UNRESOLVED
+
+    p = UnresolvedProvider()
+    assert p.predict("mensagem ambígua") is QueryIntentSignal.UNRESOLVED
+
+
+def test_qip09f_unresolved_is_substitutable():
+    class AlwaysUnresolved(QueryIntentProvider):
+        def predict(self, message: str) -> QueryIntentSignal:
+            return QueryIntentSignal.UNRESOLVED
+
+    class AlwaysPrice(QueryIntentProvider):
+        def predict(self, message: str) -> QueryIntentSignal:
+            return QueryIntentSignal.QUERY_PRICE
+
+    providers = [AlwaysUnresolved(), AlwaysPrice()]
+    assert [p.predict("x") for p in providers] == [
+        QueryIntentSignal.UNRESOLVED,
+        QueryIntentSignal.QUERY_PRICE,
+    ]
+
+
+def test_qip09g_unresolved_not_in_semantic_intent():
+    from pipeline.semantic_intent_router import SemanticIntent
+    si_values = {s.value for s in SemanticIntent}
+    assert "UNRESOLVED" not in si_values
+
+
+def test_qip09h_unresolved_does_not_imply_exception():
+    """
+    A provider returning UNRESOLVED must not be interpreted as
+    operational failure. The exception path is separate (QIP-05).
+    """
+    class UnresolvedProvider(QueryIntentProvider):
+        def predict(self, message: str) -> QueryIntentSignal:
+            return QueryIntentSignal.UNRESOLVED
+
+    p = UnresolvedProvider()
+    # Must not raise.
+    result = p.predict("x")
+    assert result is QueryIntentSignal.UNRESOLVED
+
+
+# =============================================
+# QIP-10 — T10-P11 / T10-P12 / T10-P13 documentation
+# =============================================
+
+def test_qip10a_module_documents_t10p11(module_source):
+    assert "T10-P11" in module_source
+    lower = module_source.lower()
+    assert (
+        "absence" in lower
+        or "lack of" in lower
+        or "insufficient" in lower
+    )
+
+
+def test_qip10b_module_documents_t10p12(module_source):
+    assert "T10-P12" in module_source
+    lower = module_source.lower()
+    assert "unresolved" in lower
+    assert "provider failure" in lower or "operational failure" in lower
+
+
+def test_qip10c_module_documents_t10p13(module_source):
+    assert "T10-P13" in module_source
+    lower = module_source.lower()
+    assert "unresolved" in lower
+    assert "not_query" in lower
