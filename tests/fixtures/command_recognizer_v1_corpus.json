@@ -1,0 +1,87 @@
+{
+  "version": "v1",
+  "checkpoint": "e3904b79bd95a2bac8a9e3227f6f7cb2efe5e235",
+  "source_module": "benchmark/adapters/modular.py",
+  "source_symbol": "ModularAdapter._classify_intent",
+  "notes": "Frozen legacy behavior at the checkpoint above, restricted to the deterministic fallback path (intent_classifier = None). Do not 'correct' historically odd outputs. T10-P36: differences required by the new recognizer contract will be documented and tested explicitly in later stages.",
+  "fallback_cases": [
+    {"id": "r1_01", "category": "change_quantity", "input": "muda para 5", "legacy_output": "CHANGE_QUANTITY"},
+    {"id": "r1_02", "category": "change_quantity", "input": "muda para 10", "legacy_output": "CHANGE_QUANTITY"},
+    {"id": "r1_03", "category": "change_quantity", "input": "Muda Para 3", "legacy_output": "CHANGE_QUANTITY"},
+
+    {"id": "r2_01", "category": "remove_item", "input": "tira 2", "legacy_output": "REMOVE_ITEM"},
+    {"id": "r2_02", "category": "remove_item", "input": "tira 3 kg", "legacy_output": "REMOVE_ITEM"},
+
+    {"id": "r3_01", "category": "add_item", "input": "coloca 3 kg de brie", "legacy_output": "ADD_ITEM"},
+    {"id": "r3_02", "category": "add_item", "input": "coloca 5 peças", "legacy_output": "ADD_ITEM"},
+    {"id": "r3_03", "category": "add_item", "input": "coloca 2 formas", "legacy_output": "ADD_ITEM"},
+
+    {"id": "r4_01", "category": "add_item", "input": "quero brie", "legacy_output": "ADD_ITEM"},
+    {"id": "r4_02", "category": "add_item", "input": "me manda dois brie", "legacy_output": "ADD_ITEM"},
+    {"id": "r4_03", "category": "add_item", "input": "bota brie", "legacy_output": "ADD_ITEM"},
+    {"id": "r4_04", "category": "add_item", "input": "gostaria de provolone", "legacy_output": "ADD_ITEM"},
+    {"id": "r4_05", "category": "add_item", "input": "manda dois brie", "legacy_output": "ADD_ITEM"},
+    {"id": "r4_06", "category": "add_item", "input": "coloca brie", "legacy_output": "ADD_ITEM"},
+
+    {"id": "r5_01", "category": "remove_item", "input": "tira o brie", "legacy_output": "REMOVE_ITEM"},
+    {"id": "r5_02", "category": "remove_item", "input": "remove o brie", "legacy_output": "REMOVE_ITEM"},
+    {"id": "r5_03", "category": "remove_item", "input": "cancela", "legacy_output": "REMOVE_ITEM"},
+    {"id": "r5_04", "category": "cancel_order", "input": "cancela tudo", "legacy_output": "CANCEL_ORDER"},
+    {"id": "r5_05", "category": "cancel_order", "input": "cancela o pedido", "legacy_output": "CANCEL_ORDER"},
+    {"id": "r5_06", "category": "cancel_order", "input": "remove tudo", "legacy_output": "CANCEL_ORDER"},
+
+    {"id": "r6_01", "category": "change_quantity", "input": "muda a quantidade", "legacy_output": "CHANGE_QUANTITY"},
+    {"id": "r6_02", "category": "historical_anomaly", "input": "troca o brie pelo provolone", "legacy_output": "CHANGE_QUANTITY"},
+    {"id": "r6_03", "category": "change_quantity", "input": "na verdade, brie", "legacy_output": "CHANGE_QUANTITY"},
+
+    {"id": "r7_01", "category": "confirm_order", "input": "fecha", "legacy_output": "CONFIRM_ORDER"},
+    {"id": "r7_02", "category": "confirm_order", "input": "fechar", "legacy_output": "CONFIRM_ORDER"},
+    {"id": "r7_03", "category": "confirm_order", "input": "confirmar", "legacy_output": "CONFIRM_ORDER"},
+    {"id": "r7_04", "category": "confirm_order", "input": "confirmado", "legacy_output": "CONFIRM_ORDER"},
+    {"id": "r7_05", "category": "confirm_order", "input": "fecha o pedido", "legacy_output": "CONFIRM_ORDER"},
+
+    {"id": "p_01", "category": "precedence", "input": "muda para 5, tira 2", "legacy_output": "CHANGE_QUANTITY"},
+    {"id": "p_02", "category": "precedence", "input": "tira 2, cancela tudo", "legacy_output": "REMOVE_ITEM"},
+    {"id": "p_03", "category": "precedence", "input": "cancela tudo, quero brie", "legacy_output": "ADD_ITEM"},
+    {"id": "p_04", "category": "precedence", "input": "na verdade, quero mussarela", "legacy_output": "ADD_ITEM"},
+    {"id": "p_05", "category": "precedence", "input": "coloca 3 kg, quero mais", "legacy_output": "ADD_ITEM"},
+
+    {"id": "q_01", "category": "query", "input": "tem brie?", "legacy_output": "UNKNOWN"},
+    {"id": "q_02", "category": "query", "input": "quanto custa o brie?", "legacy_output": "UNKNOWN"},
+    {"id": "q_03", "category": "query", "input": "qual o preço e tem disponível?", "legacy_output": "UNKNOWN"},
+
+    {"id": "m_01", "category": "mixed", "input": "tem brie, manda dois", "legacy_output": "ADD_ITEM"},
+    {"id": "m_02", "category": "mixed", "input": "quanto custa o brie, manda dois", "legacy_output": "ADD_ITEM"},
+
+    {"id": "u_01", "category": "unknown", "input": "asdkjfh zzz qqq", "legacy_output": "UNKNOWN"},
+    {"id": "u_02", "category": "unknown", "input": "nada aqui relevante", "legacy_output": "UNKNOWN"},
+
+    {"id": "s_01", "category": "social", "input": "olá", "legacy_output": "UNKNOWN"},
+    {"id": "s_02", "category": "social", "input": "bom dia", "legacy_output": "UNKNOWN"},
+
+    {"id": "e_01", "category": "empty", "input": "", "legacy_output": "UNKNOWN"},
+    {"id": "e_02", "category": "empty", "input": "   ", "legacy_output": "UNKNOWN"},
+
+    {"id": "n_01", "category": "noise", "input": "asdkjfh", "legacy_output": "UNKNOWN"},
+
+    {"id": "h_01", "category": "historical_anomaly", "input": "substitui o brie", "legacy_output": "UNKNOWN"}
+  ],
+  "classifier_label_map": {
+    "LABEL_0": "ADD_ITEM",
+    "LABEL_1": "REMOVE_ITEM",
+    "LABEL_2": "CHANGE_QUANTITY",
+    "LABEL_3": "CONFIRM_ORDER",
+    "LABEL_4": "CANCEL_ORDER",
+    "LABEL_5": "UNKNOWN"
+  },
+  "classifier_cases": [
+    {"id": "c_0",  "label": "LABEL_0",  "legacy_output": "ADD_ITEM"},
+    {"id": "c_1",  "label": "LABEL_1",  "legacy_output": "REMOVE_ITEM"},
+    {"id": "c_2",  "label": "LABEL_2",  "legacy_output": "CHANGE_QUANTITY"},
+    {"id": "c_3",  "label": "LABEL_3",  "legacy_output": "CONFIRM_ORDER"},
+    {"id": "c_4",  "label": "LABEL_4",  "legacy_output": "CANCEL_ORDER"},
+    {"id": "c_5",  "label": "LABEL_5",  "legacy_output": "UNKNOWN"},
+    {"id": "c_99", "label": "LABEL_99", "legacy_output": "UNKNOWN",
+     "note": "INFORMATION LOSS: unexpected classifier label collapses to UNKNOWN. T10-P31/P34/P35 will correct this in the new recognizer."}
+  ]
+}
