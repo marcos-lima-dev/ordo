@@ -1,0 +1,25 @@
+{
+  "version": "track_a_evidence_preservation_v1",
+  "checkpoint": "e035890e30c72732ab27f7cd573cd239ef6b93d1",
+  "frozen_before_implementation": true,
+  "notes": "Frozen before implementation. Group A asserts NORMALIZED_ALIAS_EXACT is preserved after merge when ORIGINAL had non-positive evidence for the same SKU. Group B asserts no promotion when neither stream produced positive. Group G asserts legitimate ambiguity survives.",
+
+  "group_a_same_sku_positive_preservation": [
+    {"input": "manda provolone defumado", "positive_sku": "CQ-44"},
+    {"input": "manda provolone curado", "positive_sku": "CQ-44"},
+    {"input": "manda provolone tânia", "positive_sku": "CQ-44"},
+    {"input": "manda provolone forma riqueza", "positive_sku": "CQ-46"},
+    {"input": "manda provolone riqueza", "positive_sku": "CQ-46"},
+    {"input": "manda Camembert", "positive_sku": "CQ-04"}
+  ],
+
+  "group_b_no_promotion": [
+    {"input": "manda provolone", "forbidden_positive": ["CQ-44", "CQ-46"]},
+    {"input": "manda brie", "forbidden_positive": ["CQ-01", "CQ-02", "CQ-03"]}
+  ],
+
+  "group_g_legitimate_ambiguity": [
+    {"input": "manda provolone", "min_candidates": 2},
+    {"input": "manda brie", "min_candidates": 2}
+  ]
+}

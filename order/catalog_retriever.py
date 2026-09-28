@@ -4,6 +4,9 @@ from pathlib import Path
 from typing import List, Optional, Tuple, Dict
 from difflib import get_close_matches
 
+from order.product_resolver import ProductResolver
+
+
 PRESENTATION_TERMS = {
     "forma", "formas", "barra", "barras", "bloco", "blocos",
     "bisnaga", "bisnagas", "peça", "peças", "pote", "potes",
@@ -24,6 +27,16 @@ QUANTITY_PATTERN = re.compile(
     r"\d+(?:[.,]\d+)?\s*(?:kg|quilos|quilo|k|g|gramas|l|litros)?",
     re.IGNORECASE,
 )
+
+
+# P101/P102 helper. Uses the same substring convention as
+# ProductResolver to decide whether a provenance string carries
+# positive (commercial-authority) evidence.
+_POSITIVE_EVIDENCE_SOURCES = ProductResolver.POSITIVE_EVIDENCE_SOURCES
+
+
+def _is_positive_evidence(prov_str: str) -> bool:
+    return any(src in prov_str for src in _POSITIVE_EVIDENCE_SOURCES)
 
 
 def normalize_term(term: str) -> str:
@@ -116,6 +129,11 @@ class CatalogRetriever:
         CR-03: preserva evidência original + normalizada (não substitutiva).
         Ordem determinística: ORIGINAL em ordem de descoberta, depois NORMALIZED-only.
         Constraints de brand/presentation filtram SEM perder proveniência.
+
+        P101: para o MESMO SKU, se a evidência já registrada não é positiva
+        mas o outro stream produziu evidência positiva, preservar a positiva.
+        P102: nunca promover (nenhum stream positivo → mantém).
+        P103: nunca cruzar SKUs (cada SKU é decidido independente).
         """
         original_normalized = normalize_query(query)
         if not original_normalized:
@@ -127,7 +145,8 @@ class CatalogRetriever:
             original_normalized, "NORMALIZED"
         )
 
-        # União determinística: ORIGINAL primeiro (ordem de descoberta), depois NORMALIZED-only
+        # União determinística: ORIGINAL primeiro (ordem de descoberta),
+        # depois NORMALIZED-only.
         ordered: List[str] = []
         seen = set()
         provenance: Dict[str, str] = {}
@@ -141,6 +160,15 @@ class CatalogRetriever:
                 ordered.append(cid)
                 seen.add(cid)
                 provenance[cid] = prov_normalized.get(cid, "NORMALIZED_MATCH")
+            else:
+                current = provenance.get(cid, "")
+                candidate = prov_normalized.get(cid, "")
+                if (
+                    candidate
+                    and not _is_positive_evidence(current)
+                    and _is_positive_evidence(candidate)
+                ):
+                    provenance[cid] = candidate
 
         # Constraints de brand/presentation (preservam proveniência)
         if brand:
