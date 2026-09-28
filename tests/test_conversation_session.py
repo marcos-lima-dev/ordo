@@ -89,7 +89,6 @@ def _fake_resolver(message, state):
 
 
 def _turn(store, engine, cid, message):
-    """One full turn: get state, resolve, execute, save."""
     state = store.get_or_create(cid)
     caller_result = invoke(
         message,
@@ -101,6 +100,89 @@ def _turn(store, engine, cid, message):
     execution = compose_command_execution(caller_result, state, engine)
     store.save(cid, execution.state if execution.state is not None else state)
     return state
+
+
+# =============================================
+# AST checker for forbidden symbols (test-only)
+# =============================================
+
+_FORBIDDEN_TOKENS = (
+    "OrderEngine",
+    "add_item",
+    "remove_item",
+    "ResolutionResult",
+    "resolve_operation",
+    "application_caller",
+)
+
+
+def _collect_docstring_node_ids(tree):
+    ids = set()
+    for node in ast.walk(tree):
+        if isinstance(
+            node,
+            (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef),
+        ):
+            if (
+                node.body
+                and isinstance(node.body[0], ast.Expr)
+                and isinstance(node.body[0].value, ast.Constant)
+                and isinstance(node.body[0].value.value, str)
+            ):
+                ids.add(id(node.body[0].value))
+    return ids
+
+
+def _assert_no_forbidden_in_code(source: str) -> None:
+    """
+    Raise AssertionError if any forbidden symbol appears in code
+    (non-docstring string constants, imports by module OR by symbol
+    name, or direct .apply calls).
+    """
+    tree = ast.parse(source)
+    docstring_ids = _collect_docstring_node_ids(tree)
+
+    # 1. Non-docstring string constants must not contain forbidden tokens.
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.Constant)
+            and isinstance(node.value, str)
+            and id(node) not in docstring_ids
+        ):
+            for token in _FORBIDDEN_TOKENS:
+                assert token not in node.value, (
+                    f"non-docstring string references {token!r}: "
+                    f"{node.value!r}"
+                )
+
+    # 2. Imports must not reference forbidden tokens, in the module
+    #    path OR in the imported symbol name.
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            module = node.module or ""
+            for token in _FORBIDDEN_TOKENS:
+                assert token not in module, (
+                    f"imports forbidden module {token!r}: {module!r}"
+                )
+            for alias in node.names:
+                for token in _FORBIDDEN_TOKENS:
+                    assert token not in alias.name, (
+                        f"imports forbidden symbol {token!r}: "
+                        f"{alias.name!r}"
+                    )
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                for token in _FORBIDDEN_TOKENS:
+                    assert token not in alias.name, (
+                        f"imports forbidden {token!r}: {alias.name!r}"
+                    )
+
+    # 3. No direct .apply() calls.
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Attribute) and node.attr == "apply":
+            raise AssertionError(
+                f"direct .apply() call at line {node.lineno}"
+            )
 
 
 # =============================================
@@ -172,27 +254,61 @@ def test_cs03b_save_does_not_require_prior_get():
 
 
 # =============================================
-# CS-04 — store does not mutate commercially
+# CS-04 — store does not reference commercial execution
 # =============================================
 
-def test_cs04_store_never_calls_add_item():
-    """Structural: module must not reference OrderEngine or add_item."""
+def test_cs04_store_does_not_reference_commercial_execution_symbols():
+    """
+    AST-based check: docstrings may mention forbidden symbols as
+    prose, but code must not reference them, import them, or call
+    .apply() directly.
+    """
     source = _MODULE_PATH.read_text(encoding="utf-8")
-    for forbidden in (
-        "OrderEngine",
-        "add_item",
-        "remove_item",
-        "ResolutionResult",
-        "resolve_operation",
-        "application_caller",
-        "OrderEngine.apply",
-    ):
-        assert forbidden not in source, (
-            f"conversation_session.py must not reference {forbidden!r}"
-        )
+    _assert_no_forbidden_in_code(source)
 
 
-def test_cs04b_store_imports_only_allowed():
+def test_cs04b_ast_check_catches_import_by_symbol_name():
+    """Prove the checker detects a forbidden symbol imported by name."""
+    synthetic = (
+        '"""Docstring may mention OrderEngine."""\n'
+        "from order.engine import OrderEngine\n"
+    )
+    with pytest.raises(AssertionError):
+        _assert_no_forbidden_in_code(synthetic)
+
+
+def test_cs04b2_ast_check_catches_import_by_module_path():
+    """Prove the checker detects a forbidden module imported."""
+    synthetic = (
+        '"""Docstring may mention application_caller."""\n'
+        "from pipeline.application_caller import invoke\n"
+    )
+    with pytest.raises(AssertionError):
+        _assert_no_forbidden_in_code(synthetic)
+
+
+def test_cs04c_ast_check_catches_apply_call():
+    """Prove the checker detects a direct .apply() call in code."""
+    synthetic = (
+        '"""Docstring mentions OrderEngine."""\n'
+        "def foo(engine):\n"
+        "    engine.apply(None, None)\n"
+    )
+    with pytest.raises(AssertionError):
+        _assert_no_forbidden_in_code(synthetic)
+
+
+def test_cs04d_ast_check_ignores_docstrings():
+    """Prove the checker does not false-positive on docstrings."""
+    synthetic = (
+        '"""Mentions OrderEngine, add_item, remove_item, ResolutionResult."""\n'
+        "def foo():\n"
+        "    return 42\n"
+    )
+    _assert_no_forbidden_in_code(synthetic)
+
+
+def test_cs04e_store_imports_only_allowed():
     tree = ast.parse(_MODULE_PATH.read_text(encoding="utf-8"))
     allowed = {
         "__future__",
@@ -233,11 +349,6 @@ def test_cs05_two_turns_same_conversation_accumulates_items():
 
 
 def test_cs05b_state_carries_same_object_across_turns():
-    """
-    In-memory semantics: same instance across turns for the same
-    ConversationId. Identity is NOT part of the contract, but is
-    asserted here so future changes must be explicit.
-    """
     store = InMemoryConversationSessionStore()
     engine = OrderEngine()
     cid = _cid("conv-a")
@@ -250,7 +361,7 @@ def test_cs05b_state_carries_same_object_across_turns():
 
 
 # =============================================
-# CS-06 — cross-conversation isolation (interleaved A1, B1, A2)
+# CS-06 — cross-conversation isolation
 # =============================================
 
 def test_cs06_cross_conversation_isolation_interleaved():
