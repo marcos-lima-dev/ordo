@@ -43,7 +43,9 @@ from pipeline.query_intent_provider import (
 # ---------------------------------------------------------------------
 
 # Strong PRICE evidence.
-_RE_PRICE_QUANTO_CUSTA = re.compile(r"\bquanto\s+custa\b")
+# Family: "quanto + verbo/construção de preço".
+# Covered in Recognition Robustness Stage 1: custa, ta, sai, fica.
+_RE_PRICE_QUANTO_VERB = re.compile(r"\bquanto\s+(?:custa|ta|sai|fica)\b")
 _RE_PRICE_PRECO = re.compile(r"\bpreco\b")
 _RE_PRICE_VALOR_QUAL = re.compile(r"\bqual\s+(?:o|e\s+o)\s+valor\b")
 
@@ -113,7 +115,7 @@ class QueryIntentBootstrap(QueryIntentProvider):
 
         # --- PRICE evidence ---
         has_price = bool(
-            _RE_PRICE_QUANTO_CUSTA.search(structural)
+            _RE_PRICE_QUANTO_VERB.search(structural)
             or _RE_PRICE_PRECO.search(structural)
             or _RE_PRICE_VALOR_QUAL.search(structural)
         )
@@ -132,7 +134,7 @@ class QueryIntentBootstrap(QueryIntentProvider):
 
         has_quanto_not_custa = bool(
             _RE_HAS_QUANTO.search(structural)
-        ) and not bool(_RE_PRICE_QUANTO_CUSTA.search(structural))
+        ) and not bool(_RE_PRICE_QUANTO_VERB.search(structural))
 
         has_de_quanto = bool(_RE_HAS_DE_QUANTO.search(structural))
         has_como = bool(_RE_HAS_COMO.search(structural))

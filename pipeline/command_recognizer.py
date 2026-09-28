@@ -102,7 +102,16 @@ _RE_ADD_ITEM_1 = re.compile(
 )
 
 _ADD_ITEM_KEYWORDS = (
+    # --- Existing baseline (Stage 4I.4a legacy equivalence) ---
     "quero", "me manda", "coloca", "bota", "manda", "gostaria",
+
+    # --- Recognition Robustness Stage 1 (Family A request-add) ---
+    # Accent variants are listed explicitly: recognizer does NOT
+    # normalize accents in this Stage.
+    "me vê", "me ve",
+    "separa",
+    "adiciona",
+    "vou querer",
 )
 _REMOVE_OR_CANCEL_KEYWORDS = ("tira", "remove", "cancela")
 _CHANGE_QUANTITY_KEYWORDS = ("muda", "troca", "na verdade")

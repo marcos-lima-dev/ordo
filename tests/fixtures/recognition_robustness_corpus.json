@@ -1,0 +1,70 @@
+{
+  "version": "recognition_robustness_v1",
+  "checkpoint": "6361a61aa6ca76c00439d5cbb088b8c92dfce621",
+  "frozen_before_implementation": true,
+  "notes": "Frozen BEFORE implementation. Expected outcomes declared from design intent (P91/P94/P95), not from mechanism output. Sections command_characterized_fp and query_characterized_fp document ACCEPTED false positives — the mechanism will fire, and downstream handles them. They are not asserted safe. See P93 (structured commercial content != command authorization).",
+
+  "command_must_fire": [
+    {"input": "me vê dois provolone", "expected": "RECOGNIZED:ADD_ITEM", "class": "request_add_meve"},
+    {"input": "me ve dois provolone", "expected": "RECOGNIZED:ADD_ITEM", "class": "request_add_meve"},
+    {"input": "Me Vê dois provolone", "expected": "RECOGNIZED:ADD_ITEM", "class": "request_add_meve"},
+    {"input": "me vê um brie", "expected": "RECOGNIZED:ADD_ITEM", "class": "request_add_meve"},
+    {"input": "separa um brie pra mim", "expected": "RECOGNIZED:ADD_ITEM", "class": "request_add_separa"},
+    {"input": "separa dois gorgonzola", "expected": "RECOGNIZED:ADD_ITEM", "class": "request_add_separa"},
+    {"input": "adiciona mussarela", "expected": "RECOGNIZED:ADD_ITEM", "class": "request_add_adiciona"},
+    {"input": "adiciona dois gorgonzola", "expected": "RECOGNIZED:ADD_ITEM", "class": "request_add_adiciona"},
+    {"input": "vou querer dois brie", "expected": "RECOGNIZED:ADD_ITEM", "class": "request_add_vouquerer"},
+    {"input": "vou querer mussarela", "expected": "RECOGNIZED:ADD_ITEM", "class": "request_add_vouquerer"}
+  ],
+
+  "command_regression": [
+    {"input": "manda dois brie", "expected": "RECOGNIZED:ADD_ITEM", "class": "regression_existing"},
+    {"input": "quero gorgonzola", "expected": "RECOGNIZED:ADD_ITEM", "class": "regression_existing"},
+    {"input": "coloca 3 kg de brie", "expected": "RECOGNIZED:ADD_ITEM", "class": "regression_existing"},
+    {"input": "tira 2", "expected": "RECOGNIZED:REMOVE_ITEM", "class": "regression_existing"},
+    {"input": "cancela tudo", "expected": "RECOGNIZED:CANCEL_ORDER", "class": "regression_existing"},
+    {"input": "confirmado", "expected": "RECOGNIZED:CONFIRM_ORDER", "class": "regression_existing"}
+  ],
+
+  "command_must_not_fire": [
+    {"input": "preciso falar sobre provolone", "expected": "UNRECOGNIZED", "reason": "no authorized construction"},
+    {"input": "preciso pensar no assunto", "expected": "UNRECOGNIZED", "reason": "no authorized construction"},
+    {"input": "querida amiga", "expected": "UNRECOGNIZED", "reason": "querida != vou querer"},
+    {"input": "vou viajar amanhã", "expected": "UNRECOGNIZED", "reason": "vou sem querer"},
+    {"input": "bom dia", "expected": "UNRECOGNIZED", "reason": "social"},
+    {"input": "obrigado", "expected": "UNRECOGNIZED", "reason": "social"}
+  ],
+
+  "command_characterized_fp": [
+    {"input": "separa as ideias", "expected": "RECOGNIZED:ADD_ITEM", "note": "separa class fires; downstream resolve_operation will not produce executable operation; ACCEPTED FP"},
+    {"input": "separa o que é queijo do que não é", "expected": "RECOGNIZED:ADD_ITEM", "note": "separa class fires; downstream no resolvable product; ACCEPTED FP"},
+    {"input": "adiciona isso na lista de desejos", "expected": "RECOGNIZED:ADD_ITEM", "note": "adiciona class fires; downstream no resolvable product; ACCEPTED FP"},
+    {"input": "me vê isso depois", "expected": "RECOGNIZED:ADD_ITEM", "note": "me vê fires; downstream clarification; ACCEPTED FP"},
+    {"input": "me vê como resolver isso", "expected": "RECOGNIZED:ADD_ITEM", "note": "me vê fires; downstream clarification; ACCEPTED FP"}
+  ],
+
+  "query_must_fire": [
+    {"input": "quanto tá o provolone", "expected": "QUERY_PRICE", "class": "quanto_verb"},
+    {"input": "quanto ta o provolone", "expected": "QUERY_PRICE", "class": "quanto_verb"},
+    {"input": "quanto sai o brie", "expected": "QUERY_PRICE", "class": "quanto_verb"},
+    {"input": "quanto fica a mussarela", "expected": "QUERY_PRICE", "class": "quanto_verb"},
+    {"input": "quanto custa o brie", "expected": "QUERY_PRICE", "class": "regression_existing"},
+    {"input": "qual o valor do provolone", "expected": "QUERY_PRICE", "class": "regression_existing"}
+  ],
+
+  "query_regression": [
+    {"input": "preço do brie", "expected": "QUERY_PRICE", "class": "regression_existing"},
+    {"input": "tem brie?", "expected": "QUERY_AVAILABILITY", "class": "regression_existing"},
+    {"input": "vocês têm provolone?", "expected": "QUERY_AVAILABILITY", "class": "regression_existing"},
+    {"input": "tem disponível?", "expected": "QUERY_AVAILABILITY", "class": "regression_existing"},
+    {"input": "tem provolone de quanto?", "expected": "UNRESOLVED", "class": "regression_4g_gap"},
+    {"input": "quanto tem de provolone?", "expected": "UNRESOLVED", "class": "regression_4g_gap"},
+    {"input": "olá", "expected": "UNRESOLVED", "class": "regression_existing"},
+    {"input": "valor", "expected": "UNRESOLVED", "class": "regression_existing"}
+  ],
+
+  "query_characterized_fp": [
+    {"input": "quanto ta faltando", "expected": "QUERY_PRICE", "note": "quanto+ta class fires; ACCEPTED FP; no fact source anyway; downstream FactRetrievalResult is SOURCE_UNAVAILABLE"},
+    {"input": "quanto ta longe", "expected": "QUERY_PRICE", "note": "quanto+ta class fires; ACCEPTED FP"}
+  ]
+}
