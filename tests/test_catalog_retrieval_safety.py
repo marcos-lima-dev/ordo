@@ -5,6 +5,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import pytest
 from order.catalog_retriever import CatalogRetriever
 from order.product_resolver import ProductResolver
+from order.evidence import Evidence
 
 
 @pytest.fixture
@@ -148,56 +149,88 @@ def test_constraints_preserve_provenance(retriever):
 
 def test_unique_alias_exact_authorizes_exact_match(resolver):
     status = resolver.resolve(
-        ["CQ-30"], evidence={"CQ-30": "ORIGINAL_ALIAS_EXACT"}
+        ["CQ-30"],
+        evidence={"CQ-30": [Evidence(
+            sku="CQ-30", stream="ORIGINAL",
+            match_kind="ALIAS", match_strength="EXACT",
+        )]},
     )
     assert status == "EXACT_MATCH", f"Esperado EXACT_MATCH, obtido {status}"
 
 
 def test_unique_name_exact_authorizes_exact_match(resolver):
     status = resolver.resolve(
-        ["CQ-30"], evidence={"CQ-30": "NORMALIZED_NAME_EXACT"}
+        ["CQ-30"],
+        evidence={"CQ-30": [Evidence(
+            sku="CQ-30", stream="NORMALIZED",
+            match_kind="NAME", match_strength="EXACT",
+        )]},
     )
     assert status == "EXACT_MATCH"
 
 
 def test_unique_original_exact_authorizes_exact_match(resolver):
     status = resolver.resolve(
-        ["CQ-X"], evidence={"CQ-X": "ORIGINAL_ORIGINAL_EXACT"}
+        ["CQ-X"],
+        evidence={"CQ-X": [Evidence(
+            sku="CQ-X", stream="ORIGINAL",
+            match_kind="ORIGINAL_NAME", match_strength="EXACT",
+        )]},
     )
     assert status == "EXACT_MATCH"
 
 
 def test_unique_alias_token_does_not_authorize_exact_match(resolver):
     status = resolver.resolve(
-        ["CQ-44"], evidence={"CQ-44": "ORIGINAL_ALIAS_TOKEN"}
+        ["CQ-44"],
+        evidence={"CQ-44": [Evidence(
+            sku="CQ-44", stream="ORIGINAL",
+            match_kind="ALIAS", match_strength="TOKEN",
+        )]},
     )
     assert status == "AMBIGUOUS", f"Esperado AMBIGUOUS, obtido {status}"
 
 
 def test_unique_name_token_does_not_authorize_exact_match(resolver):
     status = resolver.resolve(
-        ["CQ-X"], evidence={"CQ-X": "ORIGINAL_NAME_TOKEN"}
+        ["CQ-X"],
+        evidence={"CQ-X": [Evidence(
+            sku="CQ-X", stream="ORIGINAL",
+            match_kind="NAME", match_strength="TOKEN",
+        )]},
     )
     assert status == "AMBIGUOUS"
 
 
 def test_unique_alias_subset_does_not_authorize_exact_match(resolver):
     status = resolver.resolve(
-        ["CQ-46"], evidence={"CQ-46": "ORIGINAL_ALIAS_SUBSET"}
+        ["CQ-46"],
+        evidence={"CQ-46": [Evidence(
+            sku="CQ-46", stream="ORIGINAL",
+            match_kind="ALIAS", match_strength="SUBSET",
+        )]},
     )
     assert status == "AMBIGUOUS"
 
 
 def test_unique_name_subset_does_not_authorize_exact_match(resolver):
     status = resolver.resolve(
-        ["CQ-30"], evidence={"CQ-30": "ORIGINAL_NAME_SUBSET"}
+        ["CQ-30"],
+        evidence={"CQ-30": [Evidence(
+            sku="CQ-30", stream="ORIGINAL",
+            match_kind="NAME", match_strength="SUBSET",
+        )]},
     )
     assert status == "AMBIGUOUS"
 
 
 def test_unique_fuzzy_does_not_authorize_exact_match(resolver):
     status = resolver.resolve(
-        ["CQ-44"], evidence={"CQ-44": "ORIGINAL_ALIAS_FUZZY"}
+        ["CQ-44"],
+        evidence={"CQ-44": [Evidence(
+            sku="CQ-44", stream="ORIGINAL",
+            match_kind="ALIAS", match_strength="FUZZY",
+        )]},
     )
     assert status == "AMBIGUOUS"
 
