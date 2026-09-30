@@ -44,13 +44,20 @@ def _lookup_key(raw: str) -> str:
         CQ 44  -> CQ-44
     """
     s = raw.strip().upper()
-    # Strip the accepted separators.
     for sep in ("-", " ", "\t"):
         s = s.replace(sep, "")
-    # Canonical shape: CQ + 2 digits
     if len(s) == 4 and s.startswith("CQ") and s[2:].isdigit():
         return f"CQ-{s[2:]}"
     return s
+
+
+def canonical_identifier(raw: str) -> str:
+    """
+    Public canonicalization helper for an accepted occurrence.
+
+    Returns the canonical CQ-XX form. Does not verify existence.
+    """
+    return _lookup_key(raw)
 
 
 def verify(

@@ -128,9 +128,23 @@ def _extract_source_term(message: str, product_term: Optional[str]) -> Optional[
 # Pipeline principal
 # =============================================
 
-def resolve_operation(message: str, state: OrderState) -> ResolutionResult:
+def resolve_operation(
+    message: str,
+    state: OrderState,
+    *,
+    pre_resolved_product_id: Optional[str] = None,
+) -> ResolutionResult:
     """
     Pipeline upstream unificado: gera ResolutionResult a partir de mensagem + OrderState.
+
+    Args:
+        message: mensagem bruta.
+        state: OrderState atual.
+        pre_resolved_product_id: identidade comercial já resolvida por
+            autoridade upstream (PA-1 Authority Slice v0). Aplica-se
+            SOMENTE ao branch ADD_ITEM. Para outros OperationTypes, é
+            ignorado nesta versão. Não é hint, candidato, evidência,
+            preferência, score, nem resultado de retrieval.
     """
     adapter = _get_adapter()
     resolver = _get_resolver()
@@ -238,19 +252,28 @@ def resolve_operation(message: str, state: OrderState) -> ResolutionResult:
     product_id = None
 
     if op_type == OperationType.ADD_ITEM:
-        catalog_candidates, catalog_evidence = catalog_retriever.retrieve_with_provenance(
-            message, brand=brand, presentation=presentation
-        )
-        product_status = product_resolver.resolve(
-            catalog_candidates,
-            product_term=product_term,
-            brand=brand,
-            evidence=catalog_evidence,
-        )
-        if product_status == "EXACT_MATCH" and len(catalog_candidates) == 1:
-            product_id = catalog_candidates[0]
+        if pre_resolved_product_id is not None:
+            # PA-1 Authority Slice v0: identity already resolved upstream.
+            # Skip retrieval and ProductResolver for this identity.
+            product_id = pre_resolved_product_id
+            product_status = "EXACT_MATCH"
+        else:
+            catalog_candidates, catalog_evidence = catalog_retriever.retrieve_with_provenance(
+                message, brand=brand, presentation=presentation
+            )
+            product_status = product_resolver.resolve(
+                catalog_candidates,
+                product_term=product_term,
+                brand=brand,
+                evidence=catalog_evidence,
+            )
+            if product_status == "EXACT_MATCH" and len(catalog_candidates) == 1:
+                product_id = catalog_candidates[0]
 
     elif op_type == OperationType.REPLACE_ITEM:
+        # NOTE: pre_resolved_product_id is NOT defined for REPLACE_ITEM in
+        # v0. The semantics (source vs replacement) are unresolved. The
+        # kwarg is ignored for this branch. See integration report.
         replacement_query = replacement_term or ""
         catalog_candidates, catalog_evidence = catalog_retriever.retrieve_with_provenance(replacement_query)
         product_status = product_resolver.resolve(
