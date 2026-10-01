@@ -4,7 +4,8 @@ Telegram Controlled Execution v1 — supervised harness.
 Connects the existing Telegram path (transport + adapter) to the
 canonical execution path (orchestrate_command and its composition
 chain), restricted to explicitly authorized chats and gated by an
-explicit boolean kill switch.
+explicit boolean kill switch. Additionally closes the conversation
+loop by delivering a minimal, truthful response to the origin chat.
 
 The harness does NOT:
     - produce external commercial side effects (ERP, billing, stock,
@@ -14,7 +15,9 @@ The harness does NOT:
     - bypass CommandSafetyGuard;
     - alter OrderState directly (the canonical path does, via the
       composition chain);
-    - implement a second allowlist (the adapter's allowlist is REUSE).
+    - implement a second allowlist (the adapter's allowlist is REUSE);
+    - interpret outcomes beyond mapping them to a minimal, truthful
+      response.
 
 The allowlist is the adapter's. A chat outside the adapter allowlist
 never reaches this harness with a success ParseStatus, and therefore
@@ -22,6 +25,7 @@ never reaches execution.
 
 Composition (semantic, not literal wiring order):
     Safety  →  PA-1 Authority (when applied)  →  resolution
+
 Safety is mandatory. PA-1 Authority is compositional and optional.
 """
 from __future__ import annotations
@@ -41,11 +45,11 @@ from pipeline.conversation_mapping import InMemoryConversationMappingStore
 from pipeline.conversation_session import InMemoryConversationSessionStore
 from pipeline.idempotency import InMemoryIdempotencyStore
 from pipeline.telegram_adapter import TelegramAdapter
+from pipeline.telegram_response import compose_response
 from pipeline.telegram_transport import TelegramTransport, next_offset
 
 
 # Values of ParseStatus that mean "successfully parsed".
-# Accept common spellings to be robust to the adapter's enum.
 _PARSE_SUCCESS_STATUSES = frozenset({"OK", "PARSED"})
 
 
@@ -68,7 +72,8 @@ class UpdateOutcome:
 
 class TelegramControlledExecution:
     """
-    Minimal harness: Telegram update → canonical execution path.
+    Minimal harness: Telegram update → canonical execution path →
+    minimal response delivery.
 
     Dependencies are injected. The harness composes; it does not
     duplicate. `execution_enabled` is the kill switch: when False,
@@ -104,52 +109,96 @@ class TelegramControlledExecution:
 
     def run_once(self, offset: int = 0) -> Tuple[int, List[UpdateOutcome]]:
         """
-        Poll the transport once. Process each update. Return
-        (next_offset, outcomes).
+        Poll the transport once. Process each update. Deliver a
+        minimal response when applicable. Return (next_offset, outcomes).
 
         Transport-level failure propagates; per-update failure is
         captured as ExecutionOutcome.ERROR.
         """
         updates = self._transport.get_updates(offset)
-        outcomes: List[UpdateOutcome] = [self._process_one(u) for u in updates]
+        results = [self._process_one(u) for u in updates]
+
+        outcomes: List[UpdateOutcome] = []
+        for outcome, destination in results:
+            outcomes.append(outcome)
+            self._deliver(outcome, destination)
+
         new_offset = next_offset(updates)
         return (new_offset if new_offset is not None else offset), outcomes
 
     # ---------- internal ----------
 
-    def _process_one(self, update: Any) -> UpdateOutcome:
+    def _deliver(
+        self, outcome: UpdateOutcome, destination: Optional[str],
+    ) -> None:
+        """
+        Compose and deliver a minimal response, if applicable.
+
+        Delivery failure does not propagate: the execution outcome is
+        not invalidated by a transport-level send failure.
+        """
+        response = compose_response(outcome.outcome.name, destination=destination)
+        if response is None:
+            return
+        try:
+            self._transport.send_message(response.destination, response.text)
+        except Exception:
+            # v1: send failures are silent. A future stage may add
+            # delivery observability; not in scope here.
+            pass
+
+    def _process_one(
+        self, update: Any,
+    ) -> Tuple[UpdateOutcome, Optional[str]]:
         update_id = update.get("update_id") if isinstance(update, dict) else None
 
         try:
             parse_result = self._adapter.parse(update)
         except Exception as e:
-            return UpdateOutcome(
-                update_id, ExecutionOutcome.ERROR,
-                f"adapter: {type(e).__name__}: {e}",
+            return (
+                UpdateOutcome(
+                    update_id, ExecutionOutcome.ERROR,
+                    f"adapter: {type(e).__name__}: {e}",
+                ),
+                None,
             )
 
         status_name = getattr(parse_result.status, "name", None)
         if status_name not in _PARSE_SUCCESS_STATUSES:
             reason = getattr(parse_result, "reason", None) or \
                      getattr(parse_result.status, "value", None)
-            return UpdateOutcome(update_id, ExecutionOutcome.NOT_ELIGIBLE, reason)
-
-        if not self._execution_enabled:
-            return UpdateOutcome(update_id, ExecutionOutcome.EXECUTION_DISABLED)
+            return (
+                UpdateOutcome(update_id, ExecutionOutcome.NOT_ELIGIBLE, reason),
+                None,
+            )
 
         channel_identity, external_message_id, text = _extract_parsed(parse_result)
         if channel_identity is None or external_message_id is None or text is None:
-            return UpdateOutcome(
-                update_id, ExecutionOutcome.ERROR,
-                "parse succeeded but parsed fields incomplete",
+            return (
+                UpdateOutcome(
+                    update_id, ExecutionOutcome.ERROR,
+                    "parse succeeded but parsed fields incomplete",
+                ),
+                None,
+            )
+
+        destination = getattr(channel_identity, "external_conversation_id", None)
+
+        if not self._execution_enabled:
+            return (
+                UpdateOutcome(update_id, ExecutionOutcome.EXECUTION_DISABLED),
+                destination,
             )
 
         try:
             processing = self._processor.process(text)
         except Exception as e:
-            return UpdateOutcome(
-                update_id, ExecutionOutcome.ERROR,
-                f"processor: {type(e).__name__}: {e}",
+            return (
+                UpdateOutcome(
+                    update_id, ExecutionOutcome.ERROR,
+                    f"processor: {type(e).__name__}: {e}",
+                ),
+                destination,
             )
 
         conversation_id = self._mapping_store.get_or_create(channel_identity)
@@ -167,13 +216,19 @@ class TelegramControlledExecution:
                 resolve_operation_fn=self._resolve_operation_fn,
             )
         except Exception as e:
-            return UpdateOutcome(
-                update_id, ExecutionOutcome.ERROR,
-                f"orchestrate: {type(e).__name__}: {e}",
+            return (
+                UpdateOutcome(
+                    update_id, ExecutionOutcome.ERROR,
+                    f"orchestrate: {type(e).__name__}: {e}",
+                ),
+                destination,
             )
 
-        return UpdateOutcome(
-            update_id, _classify(orchestration), _reason_from(orchestration),
+        return (
+            UpdateOutcome(
+                update_id, _classify(orchestration), _reason_from(orchestration),
+            ),
+            destination,
         )
 
 

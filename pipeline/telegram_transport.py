@@ -1,8 +1,8 @@
 """
 ORDO — Telegram transport (long polling, Shadow Pilot v1).
 
-Responsibility: obtain raw updates from the official Telegram Bot API.
-No interpretation, no ORDO semantics.
+Responsibility: obtain raw updates from the official Telegram Bot API
+and deliver plain text messages. No interpretation, no ORDO semantics.
 
 Principles honored:
     P86  CHANNEL TRANSPORT != CHANNEL ADAPTER
@@ -12,7 +12,8 @@ This module does NOT:
     - recognize intent;
     - know ChannelIdentity, ExternalMessageId, or the adapter;
     - expose the bot token outside its own instance;
-    - log the token anywhere.
+    - log the token anywhere;
+    - interpret message content.
 
 The transport is intentionally small and replaceable. Swapping long
 polling for webhook later must not require touching the adapter.
@@ -22,7 +23,7 @@ from __future__ import annotations
 import json
 from typing import Callable, Dict, List, Optional
 from urllib.parse import urlencode
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 
 
 class TransportFailure(Exception):
@@ -30,10 +31,22 @@ class TransportFailure(Exception):
 
 
 _HttpGetter = Callable[[str, float], bytes]
+_HttpPoster = Callable[[str, bytes, float], bytes]
 
 
 def _default_http_get(url: str, timeout: float) -> bytes:
     with urlopen(url, timeout=timeout) as response:  # noqa: S310
+        return response.read()
+
+
+def _default_http_post(url: str, data: bytes, timeout: float) -> bytes:
+    req = Request(
+        url,
+        data=data,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urlopen(req, timeout=timeout) as response:  # noqa: S310
         return response.read()
 
 
@@ -52,12 +65,14 @@ class TelegramTransport:
         token: str,
         *,
         http_get: Optional[_HttpGetter] = None,
+        http_post: Optional[_HttpPoster] = None,
         timeout: float = 30.0,
     ) -> None:
         if not isinstance(token, str) or not token.strip():
             raise ValueError("token must be a non-empty string")
         self._token = token
         self._http_get = http_get or _default_http_get
+        self._http_post = http_post or _default_http_post
         self._timeout = timeout
 
     def get_updates(
@@ -104,6 +119,38 @@ class TelegramTransport:
             raise TransportFailure("Telegram API returned no result list")
 
         return result
+
+    def send_message(self, chat_id: str, text: str) -> None:
+        """
+        Deliver a plain text message to a chat.
+
+        Does not interpret `text`. Does not know about ORDO semantics.
+        Raises TransportFailure on HTTP/network failure or on ok=false.
+        """
+        if not isinstance(chat_id, str) or not chat_id.strip():
+            raise ValueError("chat_id must be a non-empty string")
+        if not isinstance(text, str) or not text.strip():
+            raise ValueError("text must be a non-empty string")
+
+        url = f"{self._BASE}/bot{self._token}/sendMessage"
+        payload = json.dumps(
+            {"chat_id": chat_id, "text": text}
+        ).encode("utf-8")
+
+        try:
+            body = self._http_post(url, payload, self._timeout)
+        except Exception as exc:
+            raise TransportFailure(str(exc)) from exc
+
+        try:
+            response = json.loads(body)
+        except Exception as exc:
+            raise TransportFailure(
+                "invalid JSON from Telegram"
+            ) from exc
+
+        if not isinstance(response, dict) or response.get("ok") is not True:
+            raise TransportFailure("Telegram sendMessage returned ok=false")
 
 
 def next_offset(updates: List[Dict]) -> Optional[int]:

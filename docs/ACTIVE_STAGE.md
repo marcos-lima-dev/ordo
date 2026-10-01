@@ -2,185 +2,231 @@
 
 ## STATUS
 
-**Stage ativo:** TELEGRAM CONTROLLED EXECUTION v1
+**PROPOSTA — AGUARDANDO STAGE OPEN**
 
-**Checkpoint base:** `821d2ffea3de619a735f2fb89aef69d12b60b3de`
+**Contrato proposto:** TELEGRAM CONVERSATION LOOP CLOSURE v1
+
+**Checkpoint base:** `12ca86b7a8897e5060019cab1469b6e5926e4992`
+
+> Este documento descreve o contrato do próximo Stage. O Stage ainda **não
+> está aberto**. A abertura formal ocorre após aceite explícito do Tech Lead.
 
 ---
 
-## STAGE — TELEGRAM CONTROLLED EXECUTION v1
+## STAGE — TELEGRAM CONVERSATION LOOP CLOSURE v1
 
 ### OBJECTIVE
 
-Ligar o caminho Telegram existente ao `orchestrate_command`, permitindo que uma
-mensagem de chat explicitamente autorizado, com execução globalmente habilitada
-e comando canonicamente executável, mute `OrderState` dentro do domínio ORDO.
+Fechar o ciclo conversacional Telegram permitindo que resultados já produzidos
+pelo ORDO sejam convertidos em respostas mínimas verdadeiras e entregues ao
+mesmo chat de origem, sem ampliar autoridade comercial ou semântica.
 
 ### QUESTION THIS STAGE ANSWERS
 
-> É possível permitir execução real de comandos via Telegram, restrita a chats
-> autorizados e a um kill switch global, sem violar nenhum contrato ou gate de
-> segurança existente?
+> O ORDO consegue receber uma mensagem Telegram, processá-la/executá-la pelo
+> caminho canônico existente e devolver ao mesmo chat uma resposta mínima
+> coerente com o resultado observado, preservando todos os boundaries e gates
+> existentes?
+
+### PRINCÍPIOS
+
+```
+Internal Result
+  → Communicable Response
+  → Channel Delivery
+```
+
+**Response Composition ≠ Response Delivery.**  
+O componente que decide **o que comunicar** não possui Telegram.
+
+**Channel Delivery ≠ Domain Interpretation.**  
+O `TelegramTransport` sabe **como entregar**; não interpreta outcomes do ORDO.
+
+**Communication describes the result; it does not create a new result.**
 
 ### SUCCESS CONDITION
 
-Todos os sete cenários abaixo, provados por teste, com `OrderState` como única
-superfície de mutação:
+Todos os cenários abaixo, provados por teste:
 
-1. **Chat autorizado + execução habilitada + comando executável**
-   → `OrderState` muda pelo caminho canônico.
-2. **Execução desabilitada (kill switch OFF)**
-   → `OrderState` não muda.
-3. **Chat não autorizado (fora da allowlist)**
-   → `OrderState` não muda.
-4. **Safety block (representational overflow)**
-   → `OrderState` não muda.
-5. **Clarification / não executável** (ex.: `NEEDS_CLARIFICATION` do composer)
-   → `OrderState` não muda.
-6. **Mensagem duplicada (mesmo `ExternalMessageId`)**
-   → não provoca segunda execução; `ALREADY_CLAIMED` observável.
-7. **Nenhum external commercial side effect**
-   → nenhuma chamada a ERP, faturamento, estoque, reserva, logística,
-     pagamento, emissão de pedido externo. Verificado por isolamento
-     estrutural (AST guard) no harness e nos módulos que ele importa.
+1. **`EXECUTED`** → resposta mínima entregue ao chat correto.
+2. **`CLARIFICATION`** → resposta verdadeira, sem inventar resolução.
+3. **`SAFETY_BLOCKED`** → resposta sem execução.
+4. **`EXECUTION_DISABLED`** → resposta sem mutação.
+5. **`DUPLICATE`** → comportamento definido e testado, sem segunda execução.
+6. **`ERROR`** → resposta mínima sem vazar detalhes internos.
+7. **Destination** → exatamente o chat correspondente à mensagem recebida.
+8. **`TelegramTransport.send_message`** → realiza somente delivery; guards existentes preservados.
+9. **Composer** → não executa domínio, não chama Telegram, não cria autoridade.
+10. **E2E controlado:**
+    `Telegram update → ORDO → response composition → Telegram delivery`
+    comprovado por teste, sem external commercial side effect.
+
+### `NOT_ELIGIBLE` — DECISÃO DECLARADA
+
+> **NOT_ELIGIBLE → NO RESPONSE**
+
+Racional:
+
+A allowlist do adapter é **boundary de elegibilidade**. Mensagem de chat não
+autorizado **não deve** fazer o ORDO iniciar interação de saída.
+
+**Not eligible for processing ≠ eligible for response.**
+
+Isso também evita transformar a allowlist em mecanismo que confirma
+presença/comportamento do ORDO para chats não autorizados.
+
+Teste correspondente: chat fora da allowlist → nenhum envio.
 
 ### OUT OF SCOPE
 
-- PA-2 Stage 2 (applicability, matcher, CIA).
-- Relationship Scope mechanism.
+- LLM response generation.
+- Personalidade do bot.
+- Copy rica.
+- Templates complexos.
+- i18n.
+- WhatsApp.
+- Outbound multicanal genérico.
+- Retries sofisticados.
+- Delivery queue.
+- Webhook.
+- Delivery receipts.
+- Typing indicator.
+- Edição de mensagem.
+- Mídia.
+- Botões.
+- PA-2 Stage 2.
+- Matcher.
+- Relationship Scope.
 - `CustomerId` / `RelationshipId`.
 - Cross-channel linking.
 - TTL / expiração.
-- ERP, faturamento, estoque, logística, pagamento, emissão de pedido externo.
-- UI, dashboard, painel administrativo.
-- Aprovação humana por mensagem (decidido: não nesta versão).
-- Log-only execution.
-- Ampliar PA-1.
 - Track B.
 - SPA / ATC / CDP.
-- `approved=True` em aliases.
-- Multi-tenant, multi-org, cross-account.
-- Persistência durável (in-memory é suficiente para v1).
+- ERP.
+- Estoque externo.
+- Faturamento.
+- Pagamento.
+- Logística.
+- Qualquer external commercial side effect.
+- Persistência durável.
+- Dashboard.
+- Aprovação humana por mensagem.
+- Multi-tenant.
 
 ### REUSE
 
-Mecanismos e contratos já existentes que o Stage pode usar diretamente:
-
-- `TelegramTransport.get_updates`, `TelegramAdapter.parse`, `allowed_chat_ids`
-  (`pipeline/telegram_transport.py`, `pipeline/telegram_adapter.py`) — transporte,
-  parse e allowlist de chat.
-- `ChannelIdentity`, `InMemoryConversationMappingStore` (`pipeline/channel_identity.py`,
-  `pipeline/conversation_mapping.py`) — referência observável e mapeamento.
-- `InMemoryConversationSessionStore` (`pipeline/conversation_session.py`) — sessão.
-- `InMemoryIdempotencyStore`, `IdempotencyKey`, `ExternalMessageId`
-  (`pipeline/idempotency.py`) — idempotência.
-- `orchestrate_command` (`pipeline/application_orchestrator.py`) — já existe,
-  testado, nunca chamado em produção.
-- `OrderEngine` (`order/engine.py`) — mutação de `OrderState`.
-- `make_guarded_resolve_operation`, `CommandSafetyGuard`
-  (`pipeline/command_safety_guard.py`) — **Safety gate obrigatório**.
-- `make_pa1_authority_wrapper` (`pipeline/pa1_authority.py`) — PA-1 Authority,
-  composicional, opcional no caminho.
-- `ApplicationProcessor` (`pipeline/application_processing.py`) — se aplicável
-  para obter `SignalObservation` + `DispatchPlan`.
-- `OrchestrationOutcome` (`pipeline/application_orchestrator.py`) — outcomes
-  existentes para observabilidade mínima.
+- `TelegramTransport.get_updates`, `next_offset`, `TransportFailure`.
+- `TelegramAdapter.parse`, `ParseResult`, `ParsedMessage`, `allowed_chat_ids`.
+- `ChannelIdentity`, `InMemoryConversationMappingStore`.
+- `InMemoryConversationSessionStore`.
+- `InMemoryIdempotencyStore`, `IdempotencyKey`, `ExternalMessageId`.
+- `orchestrate_command`, `OrchestrationResult`, `OrchestrationOutcome`.
+- `CommandSafetyGuard`, `make_guarded_resolve_operation`.
+- `OrderEngine`.
+- `TelegramControlledExecution`, `UpdateOutcome`, `ExecutionOutcome`.
+- `ResolutionResult` (`outcome`, `operation`, `reason_code`, `evidence`).
+- `CallerResult`.
+- Todos os 9 testes de `test_telegram_controlled_execution.py`.
+- Todos os testes de `test_telegram_transport.py`, `test_telegram_adapter.py`.
 
 ### REGRESSION
 
-Contratos e princípios já provados que não podem ser quebrados:
-
-- P59–P67 (Safety Gate).
-- P75, P76, P77 (Idempotency).
-- P101–P105 (Track A, Evidence).
-- Boundaries com guards: `CallerResult`, `ProcessingResult`, `OrchestrationResult`.
-- Evidence Contract v0.
-- PA-1 Authority (não alterar).
-- PA-2 Stage 1 (não alterar).
+- Os 9 testes de Telegram Controlled Execution.
+- Kill switch (`execution_enabled`).
+- Safety (`CommandSafetyGuard` como gate obrigatório).
+- Idempotência (`IdempotencyKey`, atomic claim).
+- Isolamento AST do harness.
+- `_ALLOWED_IMPORTS` do `TelegramTransport` (não alterar).
+- `test_tt06_imports_only_allowed`.
+- `test_tt06b_no_or_do_or_adapter_imports`.
+- `test_tt02b_token_not_exposed_as_attribute_by_name`.
+- Boundaries fechados: `CallerResult`, `ProcessingResult`, `OrchestrationResult`.
+- `ChannelIdentity`, `OrderState`, `resolve_operation`, `OrderEngine`.
+- PA-1 Authority, PA-2 Stage 1.
 - Track B FROZEN.
+- Ausência de external commercial side effects.
 
-> Itens como `normalize_query`, `ProductResolver`, `catalog.json`, `aliases.json`
-> estão **fora da superfície autorizada de mudança** neste Stage (não aparecem
-> em `ALLOWED FILES`), mas **não são tratados como invariantes congelados**.
-> Not allowed in this Stage ≠ FROZEN architecture.
+> Itens fora do `ALLOWED FILES` **não são FROZEN por isso**.
+> `not allowed in this Stage ≠ FROZEN architecture`.
 
-### SAFETY E PA-1 — COMPOSIÇÃO
+### NEW
 
-O caminho de Controlled Execution **deve preservar `CommandSafetyGuard` /
-`make_guarded_resolve_operation` como gate obrigatório**.
+Somente:
 
-`PA-1 Authority` pode ser composta no caminho quando aplicável, reutilizando
-`make_pa1_authority_wrapper`. **PA-1 Authority não substitui Safety Authority.**
+- `TelegramTransport.send_message(chat_id, text)` — delivery capability.
+- Representação mínima / composer de resposta (`CommunicableResponse(destination, text)`).
+- Preservação do destination até Delivery (envelope próprio no boundary do harness).
 
-Nenhum dos dois mecanismos pode ser alterado neste Stage.
+### REOPEN
 
-### KILL SWITCH v1
+Nenhum.
 
-Kill switch = **configuração booleana explícita no harness de execução**.
+### PARK
 
-Conceitualmente:
-
-`execution_enabled: bool`
-
-Quando `False`:
-
-**nenhuma mensagem Telegram pode alcançar mutação de `OrderState`.**
-
-Não criar:
-
-- env var;
-- arquivo de flag;
-- módulo auxiliar;
-- dashboard;
-- configuração persistente;
-- mecanismo administrativo.
-
-Se posteriormente precisarmos de operação dinâmica, isso é outro problema.
-Para v1 queremos provar o boundary.
+- LLM response generation.
+- Personalidade, copy rica, templates complexos, i18n.
+- WhatsApp, outbound multicanal genérico.
+- Retries sofisticados, delivery queue, webhook, receipts, typing, edição, mídia, botões.
+- PA-2 Stage 2, matcher, Relationship Scope, `CustomerId`, `RelationshipId`, cross-channel, TTL.
+- SPA / ATC / CDP.
+- Track B.
+- ERP, estoque externo, faturamento, pagamento, logística.
+- Dashboard, persistência durável, multi-tenant.
+- `approved=True` em aliases.
+- Notificação de `NOT_ELIGIBLE` (allowlist é boundary de interação).
 
 ### ALLOWED FILES
 
-Lista exata. Qualquer outro arquivo exige STOP.
+Exatamente 7 arquivos:
 
 - `docs/ACTIVE_STAGE.md` — este contrato.
-- `pipeline/telegram_execution.py` — novo (harness de execução supervisionada).
-- `tests/test_telegram_controlled_execution.py` — novo (7 cenários da SUCCESS CONDITION).
+- `pipeline/telegram_transport.py` — adicionar `send_message`.
+- `pipeline/telegram_execution.py` — envelope de retorno com destino.
+- `pipeline/telegram_response.py` — **novo** (composer + `CommunicableResponse`).
+- `tests/test_telegram_transport.py` — teste para `send_message`.
+- `tests/test_telegram_response.py` — **novo** (testes do composer).
+- `tests/test_telegram_controlled_execution.py` — ajuste pelo novo retorno.
 
-**Exatamente três arquivos.** Qualquer quarto arquivo: STOP FOR TECH LEAD REVIEW.
+**Nenhum oitavo arquivo.**
 
 ### STOP CONDITION
 
-- Qualquer arquivo fora do `ALLOWED FILES`.
-- Necessidade de alterar `orchestrate_command`, `OrderState`, `OrderEngine`,
-  `CallerResult`, `ProcessingResult`, `OrchestrationResult`, `CommandSafetyGuard`,
-  `ProductResolver`, `Evidence v0`, `normalize_query`, `catalog.json`, `aliases.json`,
-  PA-1 Authority, PA-2 Stage 1.
-- Necessidade de novo mecanismo não previsto em REUSE.
-- Necessidade de decisão de domínio não coberta pela DECISION SUPERVISED v1.
-- Algum dos 7 cenários não conseguir ser provado sem violar FROZEN.
-- SUCCESS CONDITION satisfeita.
+STOP se:
+
+- surgir necessidade de oitavo arquivo;
+- boundary fechado precisar mudar;
+- novo dado semântico precisar ser criado;
+- guard do `TelegramTransport` precisar ser enfraquecido;
+- composer precisar reinterpretar domínio;
+- delivery precisar conhecer domínio;
+- external commercial side effect for necessário;
+- mecanismo não previsto aparecer;
+- SUCCESS CONDITION for satisfeita.
 
 ### CLASSIFICAÇÃO
 
 | Item | Classificação |
 |---|---|
-| TelegramTransport, TelegramAdapter, allowed_chat_ids | **REUSE** |
-| ChannelIdentity, ConversationMapping, ConversationSession | **REUSE** |
-| Idempotency Stage 1 | **REUSE** |
-| orchestrate_command | **REUSE** |
-| OrderEngine | **REUSE** |
-| CommandSafetyGuard / make_guarded_resolve_operation | **REUSE** (obrigatório) |
-| ApplicationProcessor | **REUSE** |
-| PA-1 Authority | **REUSE** (composicional, opcional no caminho) |
-| Harness de produção Telegram→orchestrate_command | **NEW** |
-| Wiring de OrderEngine + stores no ponto de produção | **NEW** |
-| Kill switch (parâmetro booleano no harness) | **NEW** (mínimo) |
-| Observable outcome sobre `OrchestrationResult` | **REUSE** (via outcomes existentes) |
-| P59–P67, P75–P77, P101–P105, boundaries com guards | **REGRESSION** |
-| Evidence Contract v0, PA-1 Authority, PA-2 Stage 1 | **REGRESSION** (não alterar) |
+| `TelegramTransport.get_updates`, `next_offset`, `TransportFailure` | **REUSE** |
+| `TelegramAdapter.parse`, `ParsedMessage`, `allowed_chat_ids` | **REUSE** |
+| `ChannelIdentity`, `InMemoryConversationMappingStore` | **REUSE** |
+| `InMemoryConversationSessionStore` | **REUSE** |
+| `InMemoryIdempotencyStore` | **REUSE** |
+| `orchestrate_command`, `OrchestrationResult` | **REUSE** |
+| `CommandSafetyGuard`, `make_guarded_resolve_operation` | **REUSE** |
+| `OrderEngine`, `TelegramControlledExecution`, `ExecutionOutcome` | **REUSE** |
+| `ResolutionResult`, `CallerResult` | **REUSE** |
+| `TelegramTransport.send_message` | **NEW** |
+| Composer mínimo + `CommunicableResponse` | **NEW** |
+| Preservação do destination até Delivery | **NEW** |
+| Kill switch, idempotência, Safety, boundaries fechados, guards do transport | **REGRESSION** |
+| PA-1 Authority, PA-2 Stage 1, Evidence v0 | **REGRESSION** (não alterar) |
 | Track B | **PARK** (FROZEN) |
-| PA-2 Stage 2, matcher, Relationship Scope, CustomerId, cross-channel, TTL, ERP, dashboard | **PARK** |
+| PA-2 Stage 2, matcher, Relationship Scope, `CustomerId`, cross-channel, TTL | **PARK** |
+| WhatsApp, outbound multicanal, LLM, copy rica, i18n, templates | **PARK** |
+| ERP, estoque, faturamento, pagamento, logística | **PARK** |
 | SPA / ATC / CDP | **PARK** |
+| Notificação de `NOT_ELIGIBLE` | **PARK** (allowlist é boundary de interação) |
 | Nenhum | **REOPEN** |
 
 ---
@@ -218,3 +264,5 @@ Lista exata. Qualquer outro arquivo exige STOP.
 
 8. **Missing from memory ≠ missing from project.**
    Consultar `ORDO_CURRENT_STATE.md` antes de investigar.
+
+   

@@ -27,6 +27,10 @@ def _fail_response(reason="bad"):
     return json.dumps({"ok": False, "description": reason}).encode()
 
 
+def _ok_send_response():
+    return json.dumps({"ok": True, "result": {"message_id": 1}}).encode()
+
+
 # =============================================
 # TT-01 — token validation
 # =============================================
@@ -190,3 +194,88 @@ def test_tt06b_no_or_do_or_adapter_imports():
                 assert tok not in node.module, (
                     f"imports forbidden {tok!r} via {node.module!r}"
                 )
+
+
+# =============================================
+# TT-07 — send_message: request shape
+# =============================================
+
+def test_tt07_send_message_builds_post_url():
+    captured = {}
+
+    def fake_http_post(url, data, timeout):
+        captured["url"] = url
+        return _ok_send_response()
+
+    t = TelegramTransport("SECRET-TOKEN", http_post=fake_http_post)
+    t.send_message("555", "hello")
+
+    assert "SECRET-TOKEN" in captured["url"]
+    assert "sendMessage" in captured["url"]
+
+
+def test_tt07b_send_message_posts_json_body():
+    captured = {}
+
+    def fake_http_post(url, data, timeout):
+        captured["data"] = data
+        return _ok_send_response()
+
+    t = TelegramTransport("tok", http_post=fake_http_post)
+    t.send_message("555", "hello")
+
+    body = json.loads(captured["data"].decode("utf-8"))
+    assert body == {"chat_id": "555", "text": "hello"}
+
+
+# =============================================
+# TT-08 — send_message: failures
+# =============================================
+
+def test_tt08_send_message_http_failure_wrapped():
+    def fake_http_post(url, data, timeout):
+        raise OSError("network down")
+
+    t = TelegramTransport("tok", http_post=fake_http_post)
+    with pytest.raises(TransportFailure):
+        t.send_message("555", "hello")
+
+
+def test_tt08b_send_message_ok_false_wrapped():
+    def fake_http_post(url, data, timeout):
+        return _fail_response("bad chat")
+
+    t = TelegramTransport("tok", http_post=fake_http_post)
+    with pytest.raises(TransportFailure):
+        t.send_message("555", "hello")
+
+
+def test_tt08c_send_message_invalid_json_wrapped():
+    def fake_http_post(url, data, timeout):
+        return b"not json"
+
+    t = TelegramTransport("tok", http_post=fake_http_post)
+    with pytest.raises(TransportFailure):
+        t.send_message("555", "hello")
+
+
+# =============================================
+# TT-09 — send_message: input validation
+# =============================================
+
+def test_tt09_send_message_rejects_empty_chat_id():
+    t = TelegramTransport("tok", http_post=lambda *a, **k: _ok_send_response())
+    with pytest.raises(ValueError):
+        t.send_message("", "hello")
+
+
+def test_tt09b_send_message_rejects_whitespace_chat_id():
+    t = TelegramTransport("tok", http_post=lambda *a, **k: _ok_send_response())
+    with pytest.raises(ValueError):
+        t.send_message("   ", "hello")
+
+
+def test_tt09c_send_message_rejects_empty_text():
+    t = TelegramTransport("tok", http_post=lambda *a, **k: _ok_send_response())
+    with pytest.raises(ValueError):
+        t.send_message("555", "   ")
