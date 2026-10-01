@@ -10,9 +10,9 @@
 
 ## CHECKPOINT OFICIAL
 
-`7ed31d35706186c5717049c0f4b6b1e937315a3a`
+`c306c1378d966c5734cb74aa8dacc37c28814313`
 
-**Checkpoint anterior (superseded):** `983485d3104220627dea8b46119a27d736b27bb6` — PA-2 Validated Historical Association Stage 1. Preservado como referência histórica; não é estado operacional.
+**Checkpoint anterior (superseded):** `12ca86b7a8897e5060019cab1469b6e5926e4992` — promoção documental de Telegram Controlled Execution v1 para CURRENT_STATE. Preservado como referência histórica; não é estado operacional.
 
 ---
 
@@ -75,7 +75,8 @@ Reabrir somente com evidência nova concreta (`REOPEN`).
 | PA-1 Explicit Identifier Input | `3c2b976` | Observer + Verifier. Implementados e testados em isolamento. |
 | PA-1 Authority Wrapper | `90a412d` | `make_pa1_authority_wrapper`. `pre_resolved_product_id` keyword-only em `resolve_operation`. ADD_ITEM apenas. |
 | PA-2 Validated Historical Association — Stage 1 | `983485d` | `HistoricalAssociationRecord` + `PA2AssociationStore`. Factual. Sem applicability, sem authority. |
-| Telegram Controlled Execution v1 | `7ed31d3` | Harness Telegram→`orchestrate_command`. Kill switch booleano no harness. Safety obrigatório (`make_guarded_resolve_operation`). Restrito a chats autorizados. Zero external commercial side effect. Autoridade máxima: mutação de `OrderState` via caminho canônico. |
+| Telegram Controlled Execution v1 | `7ed31d3` | Harness Telegram→`orchestrate_command`. Kill switch booleano no harness. Safety obrigatório. Restrito a chats autorizados. Zero external commercial side effect. Autoridade máxima: mutação de `OrderState` via caminho canônico. |
+| Telegram Conversation Loop Closure v1 | `c306c13` | Ciclo conversacional Telegram fechado. `Response Composition ≠ Response Delivery`. `Channel Delivery ≠ Domain Interpretation`. `NOT_ELIGIBLE → NO RESPONSE`. `Conversation Loop Closure ≠ external commercial execution`. Sem external commercial side effect. |
 | Canonical Command Execution | `f264e0f` | `compose_command_execution` → `to_resolved_operation` → `execute_resolution` → `OrderEngine.apply`. |
 | Session State | `5129e75` | `InMemoryConversationSessionStore`. `ConversationId` opaco. |
 | Idempotency Stage 1 | `4f8e4e9` | `IdempotencyKey(ConversationId, ExternalMessageId)`. Atomicidade contratual. |
@@ -191,6 +192,9 @@ Não investigar sem necessidade concreta para etapa ativa.
 | `HistoricalAssociationRecord` | `pipeline/pa2_association.py` | Record factual de associação validada. |
 | `PA2AssociationStore` | `pipeline/pa2_association.py` | Contrato de armazém factual por referência. |
 | `TelegramControlledExecution` | `pipeline/telegram_execution.py` | Harness de execução supervisionada Telegram→`orchestrate_command`. |
+| `CommunicableResponse` | `pipeline/telegram_response.py` | Representação mínima de resposta (`destination`, `text`). |
+| `compose_response` | `pipeline/telegram_response.py` | Composição mínima de resposta por outcome. `NOT_ELIGIBLE` → `None`. |
+| `TelegramTransport.send_message` | `pipeline/telegram_transport.py` | Delivery puro. Recebe `(chat_id, text)`; não interpreta. |
 | `Evidence v0` | `order/evidence.py` | Representação factual de retrieval. |
 | `ChannelIdentity` | `pipeline/channel_identity.py` | Referência observável de canal. |
 | `ConversationId` | `pipeline/conversation_session.py` | Identidade interna de conversa. |
@@ -249,6 +253,7 @@ Referência de navegação.
 - PA-1 Authority — `90a412de42aba32a78fccd32b05180d2aad75075`
 - PA-2 Stage 1 — `983485d3104220627dea8b46119a27d736b27bb6`
 - Telegram Controlled Execution v1 — `7ed31d35706186c5717049c0f4b6b1e937315a3a`
+- Telegram Conversation Loop Closure v1 — `c306c1378d966c5734cb74aa8dacc37c28814313`
 
 ---
 
